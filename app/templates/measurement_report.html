@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}Site Gravity Measurement Report — {{ measurement.title }}{% endblock %}
+{% block content %}
+<div class="wrap">
+  <h1>Site Gravity Measurement Report</h1>
+
+  <div class="panel">
+    <h3>General</h3>
+    <div class="grid g2">
+      <div>
+        <div class="kv"><div class="k">Measurement</div><div>{{ measurement.title }}</div></div>
+        <div class="kv"><div class="k">Project Name</div><div>{{ site["Project Name"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Station / Site Name</div><div>{{ site["Station / Site Name"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Site Code</div><div>{{ site["Site Code"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Latitude (dd,+N)</div><div>{{ site["Latitude (dd,+N)"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Longitude (dd, +E)</div><div>{{ site["Longitude (dd, +E)"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Elevation (m)</div><div>{{ site["Elevation (m)"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Gradient (µGal/cm)</div><div>{{ site["Gradient (µGal/cm)"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Setup Height (cm)</div><div>{{ site["Setup Height (cm)"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Transfer Height (cm)</div><div>{{ site["Transfer Height (cm)"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Factory Height (cm)</div><div>{{ site["Factory Height (cm)"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Barometer Factor (µGal/mBar)</div><div>{{ site["Barometer Factor (µGal/mBar)"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Operator</div><div>{{ site["Operator"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Instrument</div><div>{{ site["Instrument"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Instrument S/N</div><div>{{ site["Instrument S/N"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Acquisition Version</div><div>{{ site["Acquisition Version"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Processing Version</div><div>{{ site["Processing Version"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Processing Date</div><div>{{ site["Processing Date"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Processing Time</div><div>{{ site["Processing Time"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Number of Sets @ Drops</div><div>{{ keys["Number of Sets"] or "—" }}@{{ keys["Number of Drops"] or "—" }} </div></div>
+        <div class="kv"><div class="k">Sets Processed</div><div>{{ keys["Set #s Processed"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Sets Ignored</div><div>{{ keys["Number of Sets NOT Processed"] or "—" }}</div></div>        
+        <div class="kv"><div class="k">Total Drops Accepted</div><div>{{ keys["Total Drops Accepted"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Total Drops Rejected</div><div>{{ keys["Total Drops Rejected"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Total Fringes Acquired</div><div>{{ keys["Total Fringes Acquired"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Fringe Start</div><div>{{ keys["Fringe Start"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Processed Fringes</div><div>{{ keys["Processed Fringes"] or "—" }}</div></div>
+        <div class="kv"><div class="k">TDC Fringe Divider</div><div>{{ keys["TDC Fringe Divider"] or "—" }}</div></div>
+
+        <div class="note" style="margin-top:6px;">
+          Files:
+          {% if files.project %} {{ files.project }}{% else %} (no project) {% endif %},
+          {% if files.set %} {{ files.set }}{% else %} (no set) {% endif %}
+        </div>
+      </div>
+
+      <div>
+        {% if images and images|length %}
+          {% set primary = images[0] %}
+          <img class="site" src="{{ primary.data_url }}" alt="{{ primary.filename }}">
+        {% else %}
+          <div class="note">No site image.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div style="margin-top:8px">
+      <strong>Quality</strong>
+      {% if qm %}
+        {% set pss = qm.project_set_scatter %}
+        {% set ups = qm.uncertainty_per_set %}
+        {% set tu  = qm.total_uncertainty %}
+        {% set ssov= qm.set_scatter_overall %}
+        <div>
+          <span class="chip {% if pss and pss <= thr.pss.g %}good{% elif pss and pss <= thr.pss.w %}warn{% elif pss %}poor{% endif %}">Project Set Scatter: {{ pss if pss is not none else "—" }} µGal</span>
+          <span class="chip {% if tu and tu <= thr.tu.g %}good{% elif tu and tu <= thr.tu.w %}warn{% elif tu %}poor{% endif %}">Total Uncertainty: {{ tu if tu is not none else "—" }} µGal</span>
+          <span class="chip {% if ssov and ssov <= thr.ssov.g %}good{% elif ssov and ssov <= thr.ssov.w %}warn{% elif ssov %}poor{% endif %}">Set Scatter (overall): {{ ssov if ssov is not none else "—" }} µGal</span>
+          <span class="chip">Gravity: {{ site["Gravity (µGal)"] or "—" }}</span>
+        </div>
+      {% else %}
+        <div class="note">No quality metrics parsed.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Per‑Set</h3>
+    {% if sets and sets|length %}
+      <table>
+        <thead>
+          <tr>
+            <th>Set #</th><th>Set Scatter (µGal)</th><th>Set Sigma</th><th>Drop RMS</th><th>% Acceptance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in sets %}
+            {% set ac = (r.drop_acc_ratio if r.drop_acc_ratio is not none else None) %}
+            <tr>
+              <td class="mono">{{ r.id }}</td>
+              <td>
+                {% set val = r.set_scatter %}
+                <span class="pill {% if val is not none and val > thr.ss.w %}poor{% elif val is not none and val > thr.ss.g %}warn{% endif %}">
+                  {{ val if val is not none else "—" }} µGal
+                </span>
+              </td>
+              <td>{{ r.set_sigma if r.set_sigma is not none else "—" }}</td>
+              <td>{{ r.drop_rms if r.drop_rms is not none else "—" }}</td>
+              <td>
+                <span class="pill {% if ac is not none and ac < thr.acc.p %}poor{% elif ac is not none and ac < thr.acc.w %}warn{% endif %}">
+                  {{ ac if ac is not none else "—" }} %
+                </span>
+                {{ r.drop_accept | int(0) if r.drop_accept is not none else "—" }}A / {{ r.drop_reject | int() if r.drop_reject is not none else "—" }}R
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="note">No rows parsed from the g9 Set file.</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h3>Checklist (answers only)</h3>
+    {% if checklist and checklist|length %}
+      <table>
+        <thead>
+          <tr>
+            <th style="width:120px">Stage</th>
+            <th style="width:90px">Step</th>
+            <th>Instruction</th>
+            <th style="width:280px">Answer</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in checklist %}
+          <tr>
+            <td class="mono">Stage {{ row.stage_index }}</td>
+            <td class="mono">{{ row.step }}</td>
+            <td>
+              {{ row.action }}
+              {% if row.expected %}
+                <div class="note">Expected: {{ row.expected }}</div>
+              {% endif %}
+            </td>
+            <td class="mono">{{ row.value }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="note">No answers recorded.</div>
+    {% endif %}
+  </div>
+
+  {% if images and images|length > 1 %}
+  <div class="panel">
+    <h3>Site Images (All)</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      {% for im in images %}
+        <img class="site" src="{{ im.data_url }}" alt="{{ im.filename }}" style="max-width:300px;">
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if graphs and graphs|length %}
+  <div class="panel">
+    <h3>g9 Graphs</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      {% for gr in graphs %}
+        <img class="site" src="{{ gr.data_url }}" alt="{{ gr.filename }}" style="max-width:300px;">
+      {% endfor %}
+    </div>
+    {% if pdfs and pdfs|length %}
+      <div class="note" style="margin-top:6px;">PDFs not embedded: 
+        {% for p in pdfs %}
+          <span>{{ p.filename }}</span>{% if not loop.last %}, {% endif %}
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="footer">Generated {{ generated_at }}</div>
+</div>
+
+<style>
+.wrap{max-width:980px;margin:22px auto;padding:0 14px}
+.panel{background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:12px;margin:12px 0;box-shadow:0 1px 2px rgba(15,23,42,.06)}
+.grid{display:grid;gap:10px}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.kv{display:grid;grid-template-columns:240px 1fr;gap:8px;padding:6px;border-bottom:1px dashed #e6e8eb}
+.k{color:#475569}
+img.site{max-width:100%;border-radius:10px;border:1px solid #e6e8eb;background:#fafafa}
+.chip{display:inline-block;margin:4px 6px 0 0;border:1px solid #e6e8eb;border-radius:999px;padding:4px 10px;font-weight:600;background:#f8fafc}
+.good{background:rgba(34,197,94,.12);border-color:#86efac;color:#065f46}
+.warn{background:rgba(245,158,11,.14);border-color:#fcd34d;color:#92400e}
+.poor{background:rgba(239,68,68,.12);border-color:#fca5a5;color:#7f1d1d}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e6e8eb;border-radius:10px;overflow:hidden;margin-top:8px}
+th,td{padding:8px 10px;border-bottom:1px solid #e6e8eb;text-align:left}
+th{background:#f1f5ff;color:#1e293b;font-weight:600}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #e6e8eb;background:#f8fafc}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+.note{color:#475569;font-size:12px}
+.footer{opacity:.7;font-size:12px;margin-top:8px;color:#475569}
+</style>
+{% endblock %}

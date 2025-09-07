@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Site Survey — {{ s.name }}{% endblock %}
+{% block content %}
+<h1>{{ s.name }}</h1>
+
+<div class="card">
+  <p><strong>Code:</strong> {{ s.code or "-" }}</p>
+  <p><strong>Description:</strong><br>{{ s.description or "-" }}</p>
+  <p><strong>Status:</strong> {{ s.status }}</p>
+  <p><strong>Created:</strong> {{ s.created_at }}</p>
+  <p><strong>Updated:</strong> {{ s.updated_at }}</p>
+</div>
+
+<div class="actions" style="margin-top:12px;">
+  <a class="btn" href="/site-surveys/{{ s.id }}/edit">Edit</a>
+  <a class="btn" href="/site-surveys">Back to list</a>
+  <a class="btn" href="/site-surveys/{{ s.id }}/preflight/start">Preflight Checklist</a>
+</div>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}New Measurement — Survey {{ survey_id }}{% endblock %}
+{% block content %}
+<h1>New Measurement</h1>
+
+<form method="post" action="/site-surveys/{{ survey_id }}/measurements/new">
+  <div class="row">
+    <label for="title">Title*</label>
+    <input id="title" name="title" required placeholder="e.g., 2025-08-24 Morning Run">
+  </div>
+  <div class="row">
+    <label for="note">Note</label>
+    <input id="note" name="note" placeholder="Optional note">
+  </div>
+  <div class="actions" style="margin-top:10px;">
+    <button class="btn primary" type="submit">Create</button>
+    <a class="btn" href="/site-surveys/{{ survey_id }}/measurements">Cancel</a>
+  </div>
+</form>
+{% endblock %}

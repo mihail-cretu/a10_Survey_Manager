@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h1>{{ title }}</h1>
+
+<form method="post" action="{{ action }}">
+  <div class="row">
+    <label for="name">Name*</label>
+    <input id="name" name="name" required value="{{ survey.name if survey else '' }}">
+  </div>
+
+  <div class="row">
+    <label for="code">Code</label>
+    <input id="code" name="code" value="{{ survey.code if survey else '' }}">
+  </div>
+
+  <div class="row">
+    <label for="description">Description</label>
+    <textarea id="description" name="description" rows="3">{{ survey.description if survey else '' }}</textarea>
+  </div>
+
+  <div class="row">
+    <label for="status">Status</label>
+    <select id="status" name="status">
+      {% for st in statuses %}
+        <option value="{{ st }}" {% if survey and survey.status==st %}selected{% endif %}>{{ st }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="actions">
+    <button type="submit" class="btn primary">Save</button>
+    <a class="btn" href="/site-surveys">Cancel</a>
+    {% if survey %}
+      <a class="btn" href="/site-surveys/{{ survey.id }}">Back to Detail</a>
+      <a class="btn" href="/site-surveys/{{ survey.id }}/preflight/start">Preflight Checklist</a>
+    {% endif %}
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Preflight – Stage {{ progress.current }} of {{ progress.total }}{% endblock %}
+{% block content %}
+
+<h1>Preflight Checklist</h1>
+
+<div class="wizard-layout">
+  <!-- LEFT: vertical stage selector -->
+  <aside class="wizard-nav">
+    <div class="wizard-nav-header">Stages</div>
+    <ol class="wizard-list">
+      {% for it in nav %}
+        <li class="
+             wizard-item
+             {% if it.current %}current{% endif %}
+             {% if it.complete %}complete{% endif %}
+             {% if not it.enabled %}disabled{% endif %}
+        ">
+          {% if it.enabled %}
+            <a href="{{ it.url }}" class="wizard-link">
+              <span class="num">{{ it.n }}</span>
+              <span class="ttl">{{ it.title }}</span>
+              {% if it.complete and not it.current %}<span class="chk">✓</span>{% endif %}
+            </a>
+          {% else %}
+            <span class="wizard-link" style="pointer-events:none;">
+              <span class="num">{{ it.n }}</span>
+              <span class="ttl">{{ it.title }}</span>
+            </span>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ol>
+  </aside>
+
+  <!-- RIGHT: stage content -->
+  <section class="wizard-stage">
+    <h2 class="mb-2">{{ stage.title }}</h2>
+    <div class="muted">Stage {{ progress.current }} of {{ progress.total }}</div>
+
+    {% if error %}
+      <div class="card error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/site-surveys/{{ survey_id }}/preflight/stage/{{ progress.current }}/submit" novalidate style="margin-top:16px;">
+      <table id="checklist-table">
+        <thead>
+          <tr>
+            <th style="width:70px; text-align:center;">
+              <input type="checkbox" id="check-all" onclick="toggleAll(this)">
+            </th>
+            <th style="width:90px;">Step</th>
+            <th>Action</th>
+            <th>Expected</th>
+            <th style="min-width:280px;">Value / Comments</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for st in stage.steps %}
+          {% set safe = st._safe %}
+          {% set ans = answers.get(st.step) if answers else None %}
+          {% set prefill = (sticky.get(safe ~ '__val') if sticky and sticky.get(safe ~ '__val') else (ans.value if ans else '')) %}
+          <tr>
+            <td style="text-align:center;">
+              <input type="checkbox"
+                     id="{{ safe }}__chk"
+                     name="{{ safe }}__chk"
+                     {% if (sticky and sticky.get(safe ~ '__chk')) or (ans and ans.checked) %}checked{% endif %}>
+            </td>
+            <td><label for="{{ safe }}__chk"><strong>{{ st.step }}</strong></label></td>
+            <td>{{ st.action }}</td>
+            <td>{{ st.expected }}</td>
+            <td>
+              {% if st.value_type in ['float','number'] %}
+                <input type="number" step="any" class="w-100"
+                       name="{{ safe }}__val"
+                       value="{{ prefill }}"
+                       {% if st.required %}required{% endif %}
+                       placeholder="Enter numeric value">
+              {% else %}
+                <input type="text" class="w-100"
+                       name="{{ safe }}__val"
+                       value="{{ prefill }}"
+                       {% if st.required %}required{% endif %}
+                       placeholder="Enter value or comment">
+              {% endif %}
+              {% if st.unit %}
+                <div class="muted" style="font-size:12px;margin-top:4px;">Unit: {{ st.unit }}</div>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="actions">
+        {% if progress.current > 1 %}
+          <a class="btn" href="/site-surveys/{{ survey_id }}/preflight/stage/{{ progress.current - 1 }}">Back</a>
+        {% else %}
+          <span></span>
+        {% endif %}
+        <button class="btn primary" type="submit">
+          {% if progress.current == progress.total %}Finish{% else %}Next{% endif %}
+        </button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<script>
+function toggleAll(master){
+  document.querySelectorAll('#checklist-table input[type=checkbox]').forEach(cb => cb.checked = master.checked);
+}
+</script>
+
+<style>
+/* Layout */
+.wizard-layout{display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:start}
+.wizard-nav {
+  background:#fff;
+  border:1px solid #e6e8eb;
+  border-radius:12px;
+  max-height: 70vh;       /* limit to viewport height */
+  overflow-y: auto;       /* vertical scroll */
+  position: sticky;       /* stays in place while scrolling stage content */
+  top: 10px;              /* small offset from top */
+}
+.wizard-nav-header{padding:10px 12px;border-bottom:1px solid #e6e8eb;font-weight:600}
+.wizard-list{list-style:none;margin:0;padding:6px}
+.wizard-item{margin:2px 0}
+.wizard-link{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;text-decoration:none;color:inherit}
+.wizard-item.current .wizard-link{background:#e9f0ff;border:1px solid #b9d1ff}
+.wizard-item.complete .wizard-link:not(.current){background:#f4fbf4}
+.wizard-item.disabled{opacity:.5}
+.wizard-link .num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;background:#eef1f4;font-size:12px}
+.wizard-link .ttl{flex:1;min-width:0}
+.wizard-link .chk{font-weight:700;color:#2f7a2f}
+
+/* Stage content */
+.wizard-stage .card.error{border-color:#d92c20;background:#fff1f0;color:#6a1410}
+#checklist-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e6e8eb;margin-top:8px}
+#checklist-table th,#checklist-table td{padding:8px;border-top:1px solid #e6e8eb;vertical-align:top}
+#checklist-table th{background:#f0f2f4;text-align:left}
+.actions{margin-top:12px;display:flex;gap:8px;}
+.btn{display:inline-block;padding:8px 12px;border-radius:8px;border:1px solid #d0d7de;background:#fff}
+.btn.primary{background:#0b5fff;color:#fff;border-color:#0b5fff}
+.w-100{width:95%}
+.muted{color:#6b7280}
+</style>
+
+{% endblock %}

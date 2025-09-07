@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Preflight Checklist — {{ stage_title }}{% endblock %}
+{% block content %}
+
+<h1>Preflight Checklist</h1>
+<h2 id="stage-title">{{ stage_title }}</h2>
+
+{% if blocked %}
+  <div class="card" style="border-color:#f59e0b;background:#fff7ed;color:#92400e;">
+    <strong>Sequence required.</strong> You must complete all previous stages before this one unlocks.
+  </div>
+{% endif %}
+
+<div class="stage-nav" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:12px 0;">
+  {% for item in nav %}
+    {% set target = (stage_urls[item.index].url if stage_urls and stage_urls[item.index] else '#') %}
+    <a class="btn {% if item.complete %}primary{% endif %}"
+       href="{{ target }}"
+       {% if not item.open %}style="pointer-events:none;opacity:.45;"{% endif %}>
+      Stage {{ item.index }}{% if item.complete %} ✓{% endif %}
+    </a>
+    {% if not loop.last %}<span class="arrow">→</span>{% endif %}
+  {% endfor %}
+</div>
+
+<form method="post" action="{{ action_save }}">
+  <table id="checklist-table">
+    <thead>
+      <tr>
+        <th style="width:70px;">✅</th>
+        <th style="width:80px;">Step</th>
+        <th>Action</th>
+        <th>Expected</th>
+        <th style="min-width:240px;">Value / Comments</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for s in steps %}
+      <tr>
+        <td class="checkbox-cell" style="text-align:center;">
+          <input type="checkbox" name="checked[{{ s.step }}]" {% if s.checked %}checked{% endif %} {% if blocked %}disabled{% endif %}>
+        </td>
+        <td>{{ s.step }}</td>
+        <td>{{ s.action }}</td>
+        <td>{{ s.expected }}</td>
+        <td class="value-cell" style="display:flex;align-items:center;gap:6px;">
+          {% if s.value_type in ['float','number'] %}
+            <input type="number" step="any" name="value[{{ s.step }}]" value="{{ s.value }}" {% if blocked %}disabled{% endif %}>
+          {% else %}
+            <input type="text" name="value[{{ s.step }}]" value="{{ s.value }}" {% if blocked %}disabled{% endif %}>
+          {% endif %}
+          {% if s.required %}<span class="req" title="Required" style="color:#c00;font-weight:700;">★</span>{% endif %}
+          {% if s.unit %}<span class="unit" style="opacity:.75;font-size:12px;white-space:nowrap;">{{ s.unit }}</span>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="controls" style="margin:12px 0;display:flex;gap:8px;flex-wrap:wrap;">
+    <button class="btn primary" type="submit" {% if blocked %}disabled{% endif %}>Save Stage</button>
+
+    <form method="post" action="{{ action_check_all }}" style="display:inline;">
+      <button class="btn" type="submit" {% if blocked %}disabled{% endif %}>✔ Check All</button>
+    </form>
+
+    <form method="post" action="{{ action_clear }}" style="display:inline;margin-left:8px;">
+      <button class="btn" type="submit" {% if blocked %}disabled{% endif %}>🧹 Clear Stage</button>
+    </form>
+  </div>
+</form>
+
+<style>
+  .req { margin-left: 4px; }
+  .unit { margin-left: 6px; }
+  table { width: 100%; border-collapse: collapse; background:#fff; border:1px solid #e6e8eb; }
+  th, td { padding: 8px; border-top: 1px solid #e6e8eb; vertical-align: top; font-size: 14px; }
+  th { background: #f0f2f4; text-align: left; }
+</style>
+
+{% endblock %}

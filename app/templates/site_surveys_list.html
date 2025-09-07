@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Site Surveys{% endblock %}
+{% block content %}
+<h1>Site Surveys</h1>
+
+<div class="card">
+  {% if surveys %}
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Code</th>
+        <th>Status</th>
+        <th>Updated</th>
+        <th>Operations</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for s in surveys %}
+      <tr>
+        <td>{{ s.id }}</td>
+        <td><a href="/site-surveys/{{ s.id }}">{{ s.name }}</a></td>
+        <td>{{ s.code or "-" }}</td>
+        <td>{{ s.status }}</td>
+        <td>{{ s.updated_at }}</td>
+        <td>
+          <a class="btn" href="/site-surveys/{{ s.id }}/preflight/start">Preflight Checklist</a>
+          <a class="btn" href="/site-surveys/{{ s.id }}/measurements">Measurements</a>
+        </td>
+        <td>
+          <a class="btn" href="/site-surveys/{{ s.id }}/edit">Edit Survey</a>
+          <form method="post" action="/site-surveys/{{ s.id }}/delete" style="display:inline;" onsubmit="return confirm('Delete this survey?');">
+            <button class="btn" type="submit">Delete Survey</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p class="muted">No site surveys yet. <a href="/site-surveys/new">Create one</a>.</p>
+  {% endif %}
+</div>
+{% endblock %}

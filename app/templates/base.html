@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{% block title %}Site Surveys{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:0;background:#f7f7f8;color:#1f2328}
+    header,main,footer{max-width:95%;margin:auto;padding:16px}
+    header{display:flex;justify-content:space-between;align-items:center}
+    a{color:#0b5fff;text-decoration:none}
+    .btn{display:inline-block;padding:8px 12px;border-radius:8px;border:1px solid #d0d7de;background:#fff}
+    .btn.primary{background:#0b5fff;color:#fff;border-color:#0b5fff}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e6e8eb}
+    th,td{padding:10px;border-top:1px solid #e6e8eb}
+    th{text-align:left;background:#f0f2f4}
+    form .row{display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:center;margin:8px 0}
+    input,select,textarea{width:100%;padding:8px;border:1px solid #d0d7de;border-radius:8px;background:#fff}
+    .muted{color:#6b7280}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .card{background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:16px}
+  </style>
+</head>
+<body>
+<header>
+  <div><a href="/site-surveys"><strong>Site Surveys</strong></a></div>
+  <nav class="actions">
+    <a class="btn primary" href="/site-surveys/new">New Survey</a>
+  </nav>
+</header>
+<main>
+  {% block content %}{% endblock %}
+</main>
+<footer>
+  <p class="muted">A10 — minimal UI</p>
+</footer>
+</body>
+</html>

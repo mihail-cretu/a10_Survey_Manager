@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Projects{% endblock %}
+{% block body %}
+<div class="card">
+  <h2>Projects</h2>
+  <form method="post" action="/projects/new" style="margin:12px 0">
+    <input name="name" placeholder="Project name" required>
+    <input name="code" placeholder="Code (optional)">
+    <button type="submit">Create</button>
+  </form>
+  {% if projects %}
+  <table>
+    <thead><tr><th>Name</th><th>Code</th><th>Created</th><th></th></tr></thead>
+    <tbody>
+      {% for p in projects %}
+        <tr>
+          <td>{{p['name']}}</td>
+          <td>{{p['code']}}</td>
+          <td><small>{{p['created_at']}}</small></td>
+          <td><a href="/projects/{{p['id']}}/checklist">Open</a></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p>No projects yet.</p>{% endif %}
+</div>
+{% endblock %}

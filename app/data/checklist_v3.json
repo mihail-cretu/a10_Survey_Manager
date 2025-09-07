@@ -1,0 +1,649 @@
+{
+  "version": 3,
+  "stages": [
+    {
+      "stage": 0,
+      "title": "Stage 0 - Site & Environment",
+      "description": "",
+      "issues": [],
+      "refs": [],
+      "steps": [
+        {
+          "step": "0.1",
+          "action": "Select site location",
+          "expected": "Solid foundation (bedrock preferred), low vibration, away from vehicles & water sources, sheltered from wind/sun",
+          "required": false
+        },
+        {
+          "step": "0.2",
+          "action": "Level ground/tripod area",
+          "expected": "Slope \u226410\u00b0, unevenness \u22642 cm",
+          "required": false
+        },
+        {
+          "step": "0.3",
+          "action": "Record site name/code",
+          "expected": "Unique ID for location, use consistent naming scheme",
+          "required": false,
+          "value_type": "string"
+        },
+        {
+          "step": "0.4",
+          "action": "Record latitude",
+          "expected": "Decimal degrees (DD.DDDDD), positive N, negative S",
+          "required": true,
+          "value_type": "float",
+          "unit": "\u00b0"
+        },
+        {
+          "step": "0.5",
+          "action": "Record longitude",
+          "expected": "Decimal degrees (DD.DDDDD), positive E, negative W",
+          "required": true,
+          "value_type": "float",
+          "unit": "\u00b0"
+        },
+        {
+          "step": "0.6",
+          "action": "Record elevation",
+          "expected": "Height above mean sea level",
+          "required": true,
+          "value_type": "float",
+          "unit": "m"
+        },
+        {
+          "step": "0.7",
+          "action": "Record ambient temperature",
+          "expected": "Current temperature at site",
+          "required": true,
+          "value_type": "float",
+          "unit": "\u00b0C"
+        },
+        {
+          "step": "0.8",
+          "action": "Record current barometric pressure",
+          "expected": "Real-time pressure at site",
+          "required": true,
+          "value_type": "float",
+          "unit": "mbar"
+        },
+        {
+          "step": "0.9",
+          "action": "Record nominal barometric pressure",
+          "expected": "Long-term mean pressure for this site",
+          "required": false,
+          "value_type": "float",
+          "unit": "mbar"
+        },
+        {
+          "step": "0.10",
+          "action": "Record wind conditions",
+          "expected": "Qualitative: Calm, Light breeze, Breezy, Windy",
+          "required": false,
+          "value_type": "string"
+        },
+        {
+          "step": "0.11",
+          "action": "Record foundation type",
+          "expected": "Bedrock, concrete, compacted soil, other",
+          "required": false,
+          "value_type": "string"
+        },
+        {
+          "step": "0.12",
+          "action": "Record vertical gravity gradient",
+          "expected": "Measured or default \u22123.09 \u00b5Gal/cm",
+          "required": true,
+          "value_type": "float",
+          "unit": "\u00b5Gal/cm"
+        },
+        {
+          "step": "0.13",
+          "action": "Record transfer height",
+          "expected": "Height above marker where g will be reported (0, 100, 130 cm)",
+          "required": true,
+          "value_type": "float",
+          "unit": "cm"
+        }
+      ]
+    },
+    {
+      "stage": 1,
+      "title": "Stage 1 \u2013 Units Setup & Cabling",
+      "description": "Pre-measurement checks and recording of site metadata before any instrument setup.",
+      "issues": [
+        "High wind or direct sun can cause instability \u2014 use shelter/shade where possible.",
+        "Nearby vibration sources such as traffic, trains, or machinery will affect measurements.",
+        "Baseline sites should be away from fluctuating water sources."
+      ],
+      "refs": [
+        "A-10 Manual - Site Selection",
+        "A-10 Manual - Environmental Considerations"
+      ],
+      "steps": [
+        {
+          "step": "1.1",
+          "action": "Unpack Lower Unit (IB) (Interferometer Base); Place in position North Aligned",
+          "expected": "Unit centered over mark or tripod, stable footing, Connector to North",
+          "required": false
+        },
+        {
+          "step": "1.2",
+          "action": "Unpack Upper Unit (DU) (Dropper Unit); Place *Near* position",
+          "expected": "Place near location, KEEP BATTERY CONNECTED",
+          "required": false
+        },
+        {
+          "step": "1.3",
+          "action": "Connect *yellow* Aviation cable to IB and Main Panel",
+          "expected": "All connectors secure, correct ports used, 1x Aviation Connector connected, no red connector circle",
+          "required": false
+        },
+        {
+          "step": "1.4",
+          "action": "Connect 2xBNC cables to IB and Main Panel",
+          "expected": "Lower Unit cables properly attached, 2x BNC",
+          "required": false
+        },
+        {
+          "step": "1.5",
+          "action": "Connect *black* Aviation cables to DU and Main Panel",
+          "expected": "All connectors secure, correct ports used, 1x Aviation Connector connected, no red connector circle",
+          "required": false
+        },
+        {
+          "step": "1.6",
+          "action": "Check on Main Panel ION POWER Led",
+          "expected": "ION POWER lever Down, Led is ON",
+          "required": false
+        },
+        {
+          "step": "1.7",
+          "action": "Remove Battery Connector",
+          "expected": "Ion pump OFF, max time off battery is 10-15 min",
+          "required": false
+        },
+        {
+          "step": "1.8",
+          "action": "Unpack Computer; Connect Power cable",
+          "expected": "PC operator can Prep Site Project",
+          "required": false
+        },
+        {
+          "step": "1.9",
+          "action": "Unpack Osciloscope + Cables; Unpack Multimeter + Cables",
+          "expected": "2 BNC Cables (short); 1 BNC cable (long); 1 Temp Probe",
+          "required": false
+        }
+      ]
+    },
+    {
+      "stage": 2,
+      "title": "Stage 2 - Power Up & Temperature Warm-up",
+      "description": "Initial power-up of the A-10 system, enabling subsystems and allowing warm-up before optical alignment and measurement.",
+      "issues": [
+        "Incorrect polarity or loose connections can damage electronics or cause unstable operation.",
+        "Insufficient warm-up time can result in unstable fringes and drifting measurements.",
+        "Avoid powering the ion pump if the vacuum is compromised \u2014 check vacuum health first."
+      ],
+      "refs": [
+        "A-10 Manual - Power Supply and Connections",
+        "A-10 Manual - Warm-up Procedure"
+      ],
+      "steps": [
+        {
+          "step": "2.1",
+          "action": "Switch ON power supply",
+          "expected": "Electronics rack fans and indicators active",
+          "required": false
+        },
+        {
+          "step": "2.2",
+          "action": "Press CONTROL ENABLE",
+          "expected": "Control panel active",
+          "required": false
+        },
+        {
+          "step": "2.3",
+          "action": "Press MAIN POWER",
+          "expected": "All subsystems powered",
+          "required": false
+        },
+        {
+          "step": "2.4",
+          "action": "Press DROP TEMP",
+          "expected": "Dropper heater active",
+          "required": false
+        },
+        {
+          "step": "2.5",
+          "action": "Press COMP POWER",
+          "expected": "Computer on external power"
+        },
+        {
+          "step": "2.6",
+          "action": "Press IB TEMP",
+          "expected": "Interferometer Base heater active",
+          "required": false
+        },
+        {
+          "step": "2.7",
+          "action": "Press RUB LOCK",
+          "expected": "Rubidium clock warming",
+          "required": false
+        },
+        {
+          "step": "2.8",
+          "action": "Press LASER POWER",
+          "expected": "Laser tube warming",
+          "required": false
+        },
+        {
+          "step": "2.9",
+          "action": "Connect multimeter to ION CUR terminal, set to VDC, read value; WAIT",
+          "expected": "0.2\u20130.5 VDC, wait for good value, *redo vacuum if issue*",
+          "required": true,
+          "value_type": "float",
+          "unit": "V"
+        },
+        {
+          "step": "2.10",
+          "action": "Connect multimeter to IB TEMP terminal, set to VDC, read value; WAIT",
+          "expected": "Equivalent to 5\u201310 \u00b0C above ambient; wait 1\u20134 h",
+          "required": true,
+          "value_type": "float",
+          "unit": "V"
+        }
+      ]
+    },
+    {
+      "stage": 3,
+      "title": "Stage 3 - Lower Unit (IB) Calibration & Leveling",
+      "description": "Position and prepare the Interferometer Base (Lower Unit) over the survey mark, level the system, and verify optical alignment readiness.",
+      "issues": [
+        "Lower Unit is heavy and delicate \u2014 handle with care during removal from the case.",
+        "Surface instability can cause leveling drift; ensure solid footing before proceeding.",
+        "Do not disengage Superspring travel lock until instructed in a later stage."
+      ],
+      "refs": [
+        "A-10 Manual - Setting Up The Lower Unit",
+        "A-10 Manual - Site Selection",
+        "A-10 Manual - Environmental Considerations"
+      ],
+      "steps": [
+        {
+          "step": "3.1",
+          "action": "Set/Check interferometer button UP to calibrate Lower Unit (IB)",
+          "expected": "Interferometer in calibration position; IB in Up/Atatched position",
+          "required": false
+        },
+        {
+          "step": "3.2",
+          "action": "Press AUTO LEVEL on Main Panel; WAIT",
+          "expected": "Bubble levels centered automatically; Wait for Noise Reduction",
+          "required": false
+        },
+        {
+          "step": "3.3",
+          "action": "Remove plug from Lower Unit (IB) beam aperture",
+          "expected": "Beam path clear",
+          "required": false
+        },
+        {
+          "step": "3.4",
+          "action": "Opticaly Align fringes with Vertical Beam Checker (VBC)",
+          "expected": "Laser dots aligned; attention to VBC placement Marks",
+          "required": false
+        },
+        {
+          "step": "3.5",
+          "action": "Measure setup height (if needed or tripod in use)",
+          "expected": "From survey mark to IB base plate (cm)",
+          "required": true,
+          "value_type": "float",
+          "unit": "cm"
+        }
+      ]
+    },
+    {
+      "stage": 4,
+      "title": "Stage 4 - Upper Unit Mounting & Decoupling *Critical Step*",
+      "description": "Mount the Upper Unit (Dropping Chamber) on the Lower Unit, secure it, disengage travel locks, and separate the units to prevent vibration transfer.",
+      "issues": [
+        "Laser beam hazard \u2014 avoid direct eye exposure when removing the beam cover.",
+        "Ensure Upper Unit feet are stable and vertical to prevent misalignment.",
+        "Do not skip the separation step \u2014 vibrations from the dropper will affect measurements if units remain coupled."
+      ],
+      "refs": [
+        "A-10 Manual - Setting the Upper Unit (Dropping Chamber)",
+        "A-10 Manual - Figure 3-2 Separation Switch",
+        "A-10 Manual - Pre-operation warm-up"
+      ],
+      "steps": [
+        {
+          "step": "4.1",
+          "action": "Place Upper Unit on Lower Unit (IB); lower Upper Unit feet",
+          "expected": "Feet vertical and stable; *CHECK LASER PLUG IS REMOVED*",
+          "required": false
+        },
+        {
+          "step": "4.2",
+          "action": "Decouple interferometer (button DOWN)",
+          "expected": "Lower and Upper Unit physically separated",
+          "required": false
+        },
+        {
+          "step": "4.3",
+          "action": "Unlock Upper Unit dropper",
+          "expected": "Dropper free to operate",
+          "required": false
+        },
+        {
+          "step": "4.4",
+          "action": "Unlock Lower Unit (IB) (release Superspring travel lock)",
+          "expected": "Superspring free to move",
+          "required": false
+        },
+        {
+          "step": "4.5",
+          "action": "Check Units are *Decoupled*",
+          "expected": "Small visible gaps between v-groove and DU ball",
+          "required": false
+        }
+      ]
+    },
+    {
+      "stage": 5,
+      "title": "Stage 5 - Fringe Check *Critical Step*",
+      "description": "Use the dropper controller to oscillate the cart, check and optimize fringe contrast, and verify optical stability before starting measurements.",
+      "issues": [
+        "Fringe amplitude too low \u2013 check optical alignment and clean optics",
+        "No fringe signal \u2013 verify oscilloscope connection and laser status",
+        "Unstable fringes \u2013 check temperature control and avoid air currents",
+        "Cart not moving in OSC mode \u2013 verify travel lock disengaged"
+      ],
+      "refs": [
+        "A-10 Manual Section 3: Dropping Chamber Controller Set Up",
+        "A-10 Manual Section 5: Aligning Interferometer and Superspring",
+        "A-10 Manual Figure 2-3, Figure 5-3"
+      ],
+      "steps": [
+        {
+          "step": "5.1",
+          "action": "Connect oscilloscope to ANALOG FRINGE output",
+          "expected": "Cable secure",
+          "required": false
+        },
+        {
+          "step": "5.2",
+          "action": "Set MODE to OSC and press RESET",
+          "expected": "Cart oscillates",
+          "required": false
+        },
+        {
+          "step": "5.3",
+          "action": "Measure fringe amplitude on oscilloscope;  *Redo Stage 4 if low*",
+          "expected": "> 2.0 Vpp",
+          "required": true,
+          "value_type": "float",
+          "unit": "Vpp"
+        },
+        {
+          "step": "5.4",
+          "action": "Press RESET to stop fringes",
+          "expected": "Oscillation stops",
+          "required": false
+        },
+        {
+          "step": "5.5",
+          "action": "Rotate MODE knob to DROP and press RESET",
+          "expected": "Drop mode selected; ready for manual/auto drop",
+          "required": false
+        }
+      ]
+    },
+    {
+      "stage": 6,
+      "title": "Stage 6 - Software & Test Measurement",
+      "description": "",
+      "issues": [
+        "Do not disengage travel lock before switching to MANUAL",
+        "Large zero offset may indicate tripod mislevel or mechanical obstruction"
+      ],
+      "refs": [
+        "A-10 Manual - Superspring Centering Procedure"
+      ],
+      "steps": [
+        {
+          "step": "6.1",
+          "action": "Connect laptop USB",
+          "expected": "Software detects instrument",
+          "required": false
+        },
+        {
+          "step": "6.2",
+          "action": "Create new project in g9 software; use Templates",
+          "expected": "Project saved in F9",
+          "required": false
+        },
+        {
+          "step": "6.3",
+          "action": "Setup Project Information; lat/lon, elevation, nominal preassure, gradient, setup height, polar x/y",
+          "expected": "Set elevation and press *set* on nominal preassure; gradient -3.086 if unknown; setup height 0 for no tripod; polar X/Y from internet"
+        },
+        {
+          "step": "6.4",
+          "action": "Setup Aquisitions; edit sets/drops; edit timings",
+          "expected": "Test ready to run",
+          "required": false
+        },
+        {
+          "step": "6.5",
+          "action": "Remember pre-Measurement Test (2 sets \u00d7 30 drops)",
+          "expected": "Always run a pre-Measurement test to Validate Setup",
+          "required": false
+        },
+        {
+          "step": "6.6",
+          "action": "Set MODE to DROP",
+          "expected": "Drop mode engaged",
+          "required": false
+        },
+        {
+          "step": "6.7",
+          "action": "Check for Cart down",
+          "expected": "Press TRIGGER to bring Cart down",
+          "required": false
+        }
+      ]
+    },
+    {
+      "stage": 7,
+      "title": "Stage 7 - Final Readings & Recording",
+      "description": "",
+      "issues": [],
+      "refs": [],
+      "steps": [
+        {
+          "step": "7.1",
+          "action": "Connect multimeter to IN TEMP terminal, set to VDC, read value",
+          "expected": "35.5 \u00b0C equivalent",
+          "required": true,
+          "value_type": "float",
+          "unit": "\u00b0C"
+        },
+        {
+          "step": "7.2",
+          "action": "Connect multimeter to ION CUR terminal, set to VDC, read value",
+          "expected": "Instrument scale equivalent (e.g., 32.5 units)",
+          "required": true,
+          "value_type": "float",
+          "unit": "V"
+        },
+        {
+          "step": "7.3",
+          "action": "Connect multimeter to LASER TEMP terminal, set to VDC, read value",
+          "expected": "50.6 \u00b0C equivalent",
+          "required": true,
+          "value_type": "float",
+          "unit": "\u00b0C"
+        },
+        {
+          "step": "7.4",
+          "action": "Connect multimeter to DROP TEMP terminal, set to VDC, read value",
+          "expected": "31.7 \u00b0C equivalent",
+          "required": true,
+          "value_type": "float",
+          "unit": "\u00b0C"
+        },
+        {
+          "step": "7.5",
+          "action": "Change multimeter to Atmospheric Temp Probe, set to Temp, read value",
+          "expected": "Record Ambiental Temperature",
+          "required": true,
+          "value_type": "float",
+          "unit": "\u00b0C"
+        },
+        {
+          "step": "7.6",
+          "action": "Record these values in project Description",
+          "expected": "All readings logged",
+          "required": false
+        }
+      ]
+    },
+    {
+      "stage": 8,
+      "title": "Stage 8 \u2013 Patch Panel Connect",
+      "description": "",
+      "issues": [],
+      "refs": [],
+      "steps": [
+        {
+          "step": "8.1",
+          "action": "Connect all control panel cables",
+          "expected": "trig out - trig in; baro - baro; any temp - ib temp or drop temp; ion pump - ion cur; laser - laser curr; laser lock - laser lock; laser mode - laser mode",
+          "required": false
+        },
+        {
+          "step": "8.2",
+          "action": "Leave SS POS cable disconnected",
+          "expected": "SS POS cable disconnected",
+          "required": false
+        }
+      ]
+    },
+    {
+      "stage": 9,
+      "title": "Stage 9 - Superspring Zero & Servo Setup",
+      "description": "",
+      "issues": [],
+      "refs": [],
+      "steps": [
+        {
+          "step": "9.1",
+          "action": "Connect multimeter to SS POS terminal, set to VDC",
+          "expected": "Value fluctuates",
+          "required": false
+        },
+        {
+          "step": "9.2",
+          "action": "Press SS ZERO; WAIT to stabilize",
+          "expected": "Stabilizes under 0.020V",
+          "required": true,
+          "value_type": "float",
+          "unit": "V"
+        },
+        {
+          "step": "9.3",
+          "action": "Press LASER CONTROL (REMOTE)",
+          "expected": "Laser control in remote mode",
+          "required": false
+        },
+        {
+          "step": "9.4",
+          "action": "Exit ZERO mode",
+          "expected": "Zero mode released",
+          "required": false
+        },
+        {
+          "step": "9.5",
+          "action": "Enable SS SERVO; WAIT to stabilize",
+          "expected": "Servo loop engaged; Stabilizes near 0.00 VDC; lower is better",
+          "required": false
+        },
+        {
+          "step": "9.6",
+          "action": "Connect spring cable to SS POS",
+          "expected": "Cable secure",
+          "required": false
+        },
+        {
+          "step": "9.7",
+          "action": "Set/Ensure MODE to DROP",
+          "expected": "Drop mode active",
+          "required": false
+        }
+      ]
+    },
+    {
+      "stage": 10,
+      "title": "Stage 10 - Main Measurement Session",
+      "description": "",
+      "issues": [],
+      "refs": [],
+      "steps": [
+        {
+          "step": "10.1",
+          "action": "Verify correct project template before saving",
+          "expected": "Template matches measurement plan",
+          "required": false
+        },
+        {
+          "step": "10.2",
+          "action": "Press PLAY in software; WAIT for acquisition finish",
+          "expected": "Measurement begins",
+          "required": false
+        },
+        {
+          "step": "10.3",
+          "action": "Save project",
+          "expected": "Project saved successfully",
+          "required": false
+        },
+        {
+          "step": "10.4",
+          "action": "Record Measured Gravity",
+          "expected": "Compare with Historical Data",
+          "required": true,
+          "value_type": "float",
+          "unit": "\u00b5Gal"
+        },
+        {
+          "step": "10.5",
+          "action": "Record Measured Set Scatter",
+          "expected": "Lower is better",
+          "required": true,
+          "value_type": "float",
+          "unit": "\u00b5Gal"
+        },
+        {
+          "step": "10.6",
+          "action": "Record Measured Uncertainty",
+          "expected": "10.0 - 100 \u00b5Gal, lower is better",
+          "required": true,
+          "value_type": "float",
+          "unit": "\u00b5Gal"
+        },
+        {
+          "step": "10.7",
+          "action": "Record Measured Accept Percent",
+          "expected": "Percentage of Accepted Drops, resonably high, higher is better",
+          "required": true,
+          "value_type": "float",
+          "unit": "%"
+        }
+      ]
+    }
+  ]
+}

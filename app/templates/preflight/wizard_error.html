@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Preflight – Error{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="alert alert-danger">
+    {{ message or "An error occurred while loading the checklist." }}
+  </div>
+  <a class="btn btn-outline-secondary" href="/site-surveys/{{ survey_id }}">Back to Site Survey</a>
+</div>
+{% endblock %}

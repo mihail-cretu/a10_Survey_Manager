@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Preflight – Complete{% endblock %}
+
+{% block content %}
+<div class="container py-5 text-center">
+  <div class="display-6 mb-3">Preflight Checklist Completed</div>
+  <p class="lead">You can proceed to the next step in the workflow.</p>
+  <div class="mt-4">
+    <a class="btn btn-primary" href="/site-surveys/{{ survey_id }}">Back to Site Survey</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Measurements — Survey {{ survey_id }}{% endblock %}
+{% block content %}
+<h1>Measurements</h1>
+
+<div class="actions" style="margin:8px 0;">
+  <a class="btn primary" href="/site-surveys/{{ survey_id }}/measurements/new">New Measurement</a>
+  <a class="btn" href="/site-surveys/{{ survey_id }}">Back to Survey</a>
+</div>
+
+<div class="card">
+  {% if items and items|length %}
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Title</th>
+        <th>Created</th>
+        <th>PSS (µGal)</th>
+		<th>PSS* (cm)</th>
+        <th>Set Scatter (µGal)</th>
+        <th>Gravity (µGal)</th>
+        <th>Sets@Drops</th>
+        <th>Drops Accepted</th>
+        <th>Drops Rejected</th>
+        <th>Accepted %</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in items %}
+      <tr>
+        <td class="mono">{{ m.id }}</td>
+        <td><a href="/site-surveys/{{ survey_id }}/measurements/{{ m.id }}">{{ m.title }}</a></td>
+        <td class="muted mono">{{ m["keys"]["File Created"] }}</td>
+        <td>{{ m.pss if m.pss is not none else "—" }}</td>
+		<td>{{ (m.pss / 10 * 3.086) | round(1) if m.pss is not none else "—" }}</td>
+        <td>{{ m.ssov if m.ssov is not none else "—" }}</td>
+        <td>{{ m.gravity if m.gravity else "—" }}</td>
+        <td>{{ m.sets_at_drops }}</td>
+        <td>{{ m.drops_accepted | int() if m.drops_accepted is not none else "—" }}</td>
+        <td>{{ m.drops_rejected | int() if m.drops_rejected is not none else "—" }}</td>
+        <td>
+          {% if m.accepted_pct is not none %}
+            {{ m.accepted_pct }}%
+          {% else %}—{% endif %}
+        </td>
+        <td style="white-space:nowrap;">
+          <a class="btn" href="/site-surveys/{{ survey_id }}/measurements/{{ m.id }}">Open</a>
+          <a class="btn" href="/site-surveys/{{ survey_id }}/measurements/{{ m.id }}/report">View Report</a>
+          <form method="post" action="/site-surveys/{{ survey_id }}/measurements/{{ m.id }}/delete"
+                style="display:inline;" onsubmit="return confirm('Delete this measurement?');">
+            <button class="btn danger" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p class="muted">No measurements yet. Create one.</p>
+  {% endif %}
+</div>
+
+<style>
+  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e6e8eb;border-radius:10px;overflow:hidden;margin-top:8px}
+  th,td{padding:8px 10px;border-bottom:1px solid #e6e8eb;text-align:left}
+  th{background:#f1f5ff;color:#1e293b;font-weight:600;white-space:nowrap}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+  .muted{color:#6b7280}
+  .btn{display:inline-block;padding:6px 10px;border-radius:8px;border:1px solid #d0d7de;background:#fff}
+  .btn.primary{background:#0b5fff;color:#fff;border-color:#0b5fff}
+  .btn.danger{border-color:#ef4444;color:#b91c1c}
+  .card{background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:12px}
+</style>
+{% endblock %}
