@@ -1,7 +1,39 @@
 {% extends "base.html" %}
 {% block title %}{{ title }}{% endblock %}
+{% block header_menu %}
+  {% if survey %}
+    <a class="btn btn-measure" href="/site-surveys/{{ survey.id }}/measurements">Measurements</a>
+  {% endif %}
+{% endblock %}
+{% block header_actions %}
+  <a class="btn btn-site" href="/site-surveys/new">New Survey</a>
+  {% if survey %}
+    <a class="btn btn-site" href="/site-surveys/{{ survey.id }}">View Survey</a>
+  {% endif %}
+{% endblock %}
+{% block breadcrumbs %}
+  <nav class="breadcrumbs">
+    <a href="/site-surveys">Site Surveys</a>
+    <span class="sep">&gt;</span>
+    {% if survey %}
+      <a href="/site-surveys/{{ survey.id }}">{{ survey.name }}</a>
+      <span class="sep">&gt;</span>
+      <span class="current">Edit</span>
+    {% else %}
+      <span class="current">New Survey</span>
+    {% endif %}
+  </nav>
+{% endblock %}
 {% block content %}
 <h1>{{ title }}</h1>
+
+{% if survey %}
+<div class="card" style="margin-bottom:16px;">
+  <p><strong>Code</strong> {{ survey.code or "-" }}</p>
+  <p><strong>Status</strong> {{ survey.status }}</p>
+  <p><strong>Updated</strong> {{ survey.updated_at }}</p>
+</div>
+{% endif %}
 
 <form method="post" action="{{ action }}">
   <div class="row">
@@ -28,13 +60,15 @@
     </select>
   </div>
 
-  <div class="actions">
-    <button type="submit" class="btn primary">Save</button>
+  <div class="actions" style="margin-top:16px;">
+    <button type="submit" class="btn btn-site">Save</button>
     <a class="btn" href="/site-surveys">Cancel</a>
-    {% if survey %}
-      <a class="btn" href="/site-surveys/{{ survey.id }}">Back to Detail</a>
-      <a class="btn" href="/site-surveys/{{ survey.id }}/preflight/start">Preflight Checklist</a>
-    {% endif %}
   </div>
 </form>
+
+{% if survey %}
+  <form method="post" action="/site-surveys/{{ survey.id }}/delete" onsubmit="return confirm('Delete this survey?');" style="margin-top:24px;">
+    <button class="btn btn-danger" type="submit">Delete Survey</button>
+  </form>
+{% endif %}
 {% endblock %}

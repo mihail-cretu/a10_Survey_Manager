@@ -19,13 +19,35 @@ router = APIRouter(
     tags=["Measurement Report"],
 )
 
-# Static thresholds
+
+
+
+
+def _load_embed_asset(path: Path) -> str:
+    if not path.exists() or not path.is_file():
+        return ""
+    return path.read_text(encoding="utf-8")
+
+
+def _data_uri(content: Optional[bytes], mime: Optional[str]) -> str:
+    if not content or not mime:
+        return ""
+    encoded = base64.b64encode(content).decode("ascii")
+    return f"data:{mime};base64,{encoded}"
+
+
+def _text_data_uri(text: Optional[str]) -> str:
+    data = (text or "").encode("utf-8")
+    encoded = base64.b64encode(data).decode("ascii")
+    return f"data:text/plain;base64,{encoded}"
+
+# ---- Static THR (validation parameters)
 THR = {
-    "pss": {"g":  1.5, "w":  2.0, "p":  3.0}, # Project Set Scatter (µGal)
+    "pss": {"g":  1.5, "w":  2.0, "p":  5.0}, # Project Set Scatter (µGal)
     "tu":  {"g": 11.0, "w": 12.0, "p": 13.0}, # Total Uncertainty (µGal)
     "ups": {"g": 15.0, "w": 20.0, "p": 65.0}, # Uncertainty / Set (µGal)
     "ss":  {"g": 50.0, "w": 60.0, "p": 70.0}, # Set Scatter (µGal)
-    "ssov":{"g":  3.0, "w":  4.0, "p": 10.0}, # Set Scatter overall (µGal)
+    "ssov":{"g":  5.0, "w":  7.0, "p": 10.0}, # Set Scatter overall (µGal)
     "acc": {"g": 95.0, "w": 85.0, "p": 75.0}, # Acceptance (%)
 }
 
@@ -41,17 +63,6 @@ def _load_json(text: Optional[str]) -> Dict[str, Any]:
         return json.loads(text)
     except Exception:
         return {}
-
-def _data_url(content: bytes, mime: Optional[str]) -> Optional[str]:
-    if not content:
-        return None
-    if not mime:
-        return None
-    # Only embed images (png/jpg/webp/gif/tiff/bmp)
-    if not mime.startswith("image/"):
-        return None
-    b64 = base64.b64encode(content).decode("ascii")
-    return f"data:{mime};base64,{b64}"
 
 def _now_iso():
     return datetime.datetime.now().isoformat(timespec="seconds")
@@ -119,79 +130,230 @@ def _collect_checklist_answers(survey_id: int) -> List[Dict[str, Any]]:
 
 @router.get("")
 def render_report(request: Request, survey_id: int, measurement_id: int):
+    static_report_dir = APP_ROOT / "static" / "report"
+    header_html = _load_embed_asset(static_report_dir / "header.html")
+    footer_html = _load_embed_asset(static_report_dir / "footer.html")
+
     with _db() as con:
-        m = con.execute("SELECT * FROM measurements WHERE id=? AND survey_id=?",
-                        (measurement_id, survey_id)).fetchone()
-        if not m:
+        survey = con.execute("SELECT * FROM site_surveys WHERE id=?", (survey_id,)).fetchone()
+        if not survey:
+            raise HTTPException(status_code=404, detail="Site Survey not found")
+        measurement = con.execute(
+            "SELECT * FROM measurements WHERE id=? AND survey_id=?",
+            (measurement_id, survey_id),
+        ).fetchone()
+        if not measurement:
             raise HTTPException(status_code=404, detail="Measurement not found")
 
-        g9p = con.execute("SELECT * FROM measurement_project WHERE measurement_id=?",
-                          (measurement_id,)).fetchone()
-        g9s = con.execute("SELECT * FROM measurement_set WHERE measurement_id=?",
-                          (measurement_id,)).fetchone()
+        survey_dict = dict(survey)
+        measurement_dict = dict(measurement)
 
-        imgs = con.execute(
-            "SELECT filename, mime_type, image_blob FROM measurement_images WHERE measurement_id=? ORDER BY id ASC",
-            (measurement_id,)
+        project_row = con.execute(
+            "SELECT filename, raw_text, meta_json, imported_at FROM measurement_project WHERE measurement_id=?",
+            (measurement_id,),
+        ).fetchone()
+        set_row = con.execute(
+            "SELECT filename, raw_text, meta_json, imported_at FROM measurement_set WHERE measurement_id=?",
+            (measurement_id,),
+        ).fetchone()
+        image_rows = con.execute(
+            "SELECT filename, mime_type, caption, imported_at, image_blob FROM measurement_images WHERE measurement_id=? ORDER BY id ASC",
+            (measurement_id,),
         ).fetchall()
-        graphs = con.execute(
-            "SELECT filename, mime_type, graph_blob FROM measurement_graphs WHERE measurement_id=? ORDER BY id ASC",
-            (measurement_id,)
+        graph_rows = con.execute(
+            "SELECT filename, mime_type, note, imported_at, graph_blob FROM measurement_graphs WHERE measurement_id=? ORDER BY id ASC",
+            (measurement_id,),
         ).fetchall()
 
-    # Parse meta JSON (done in Python, not in Jinja)
-    g9p_meta = _load_json(g9p["meta_json"]) if g9p else {}
-    g9s_meta = _load_json(g9s["meta_json"]) if g9s else {}
+    project_meta = _load_json(project_row["meta_json"]) if project_row else {}
+    set_meta = _load_json(set_row["meta_json"]) if set_row else {}
 
-    # Build general section from g9 project 'site' block
-    keys = g9p_meta.get("keys", {}) if g9p_meta else {}
-    site = g9p_meta.get("site", {}) if g9p_meta else {}
-    qm   = g9p_meta.get("qm",   {}) if g9p_meta else {}
+    site = project_meta.get("site", {}) if project_meta else {}
+    keys = project_meta.get("keys", {}) if project_meta else {}
+    qm = project_meta.get("qm", {}) if project_meta else {}
 
+    def _parse_float(value: Any) -> Optional[float]:
+        import re
+        if value is None:
+            return None
+        text = str(value).replace(",", ".")
+        match = re.search(r"-?\d+(?:\.\d+)?", text)
+        return float(match.group(0)) if match else None
 
-    # One primary site image (first) + list of images (all embedded)
-    embedded_images: List[Dict[str, str]] = []
-    for r in imgs or []:
-        url = _data_url(r["image_blob"], r["mime_type"])
-        if url:
-            embedded_images.append({"filename": r["filename"], "data_url": url})
+    def _metric(name: str, label: str, unit: str = "µGal") -> Dict[str, Any]:
+        value = _parse_float(qm.get(name))
+        threshold_map = {
+            "project_set_scatter": THR.get("pss", {}),
+            "total_uncertainty":   THR.get("tu", {}),
+            "set_scatter_overall": THR.get("ssov", {}),
+            "uncertainty_per_set": THR.get("ups", {}),
+        }
+        thresholds = threshold_map.get(name, {})
+        status = "unknown"
+        if value is not None and thresholds:
+            good = thresholds.get("g")
+            warn = thresholds.get("w")
+            if good is not None and value <= good:
+                status = "good"
+            elif warn is not None and value <= warn:
+                status = "warn"
+            else:
+                status = "poor"
+        return {
+            "label": label,
+            "value": value,
+            "unit": unit if value is not None else "",
+            "status": status,
+            "thresholds": thresholds,
+        }
 
-    # Graphs: embed only images; PDFs stay as links
-    embedded_graphs: List[Dict[str, str]] = []
-    linked_pdfs: List[Dict[str, str]] = []
-    for r in graphs or []:
-        if r["mime_type"] and r["mime_type"].startswith("image/"):
-            url = _data_url(r["graph_blob"], r["mime_type"])
-            if url:
-                embedded_graphs.append({"filename": r["filename"], "data_url": url})
+    metrics = [
+        _metric("project_set_scatter", "Project Set Scatter (Measurement Precision)"),
+        _metric("total_uncertainty", "Total Uncertainty"),
+        _metric("set_scatter_overall", "Set Scatter (overall)"),
+        # _metric("uncertainty_per_set", "Uncertainty / Set"),
+    ]
+    gravity_value = site.get("Gravity (µGal)") or site.get("Gravity (?Gal)") or site.get("Gravity (uGal)")
+
+    metrics.append({
+        "label": "Gravity",
+        "value": _parse_float(gravity_value),
+        "unit": "µGal",
+        "status": "info",
+        "thresholds": {},
+    })
+
+    summary_items = [
+        ("Survey", survey_dict.get("name")),
+        ("Survey Code", survey_dict.get("code")),
+        ("Measurement", measurement_dict.get("title")),
+        ("Measurement ID", measurement_dict.get("id")),
+        ("Created", measurement_dict.get("created_at")),
+        ("Status", survey_dict.get("status")),
+        ("Note", measurement_dict.get("note")),
+    ]
+
+    site_fields = [
+        ("Project Name", "Project Name"),
+        ("Station / Site Name", "Station / Site Name"),
+        ("Site Code", "Site Code"),
+        ("Latitude", "Latitude (dd,+N)"),
+        ("Longitude", "Longitude (dd, +E)"),
+        ("Elevation (m)", "Elevation (m)"),
+        ("Gradient (uGal/cm)", "Gradient (µGal/cm)"),
+        ("Setup Height (cm)", "Setup Height (cm)"),
+        ("Transfer Height (cm)", "Transfer Height (cm)"),
+        ("Factory Height (cm)", "Factory Height (cm)"),
+        ("Instrument", "Instrument"),
+        ("Instrument S/N", "Instrument S/N"),
+        ("Acquisition Version", "Acquisition Version"),
+        ("Processing Version", "Processing Version"),
+        ("Processing Date", "Processing Date"),
+        ("Processing Time", "Processing Time"),
+    ]
+    site_details = [(label, site.get(key) or site.get(key.replace("?", "u")) or "-" ) for label, key in site_fields]
+
+    key_fields = [
+        ("Number of Sets", "Number of Sets"),
+        ("Number of Drops", "Number of Drops"),
+        ("Sets Processed", "Set #s Processed"),
+        ("Sets Ignored", "Number of Sets NOT Processed"),
+        ("Drops Accepted", "Total Drops Accepted"),
+        ("Drops Rejected", "Total Drops Rejected"),
+        ("Fringes Acquired", "Total Fringes Acquired"),
+        ("Fringe Start", "Fringe Start"),
+        ("Processed Fringes", "Processed Fringes"),
+        ("TDC Fringe Divider", "TDC Fringe Divider"),
+    ]
+    totals_details = [(label, keys.get(src) or "-") for label, src in key_fields]
+
+    set_rows = set_meta.get("rows", []) if set_meta else []
+
+    image_entries = []
+    for row in image_rows:
+        data_url = _data_uri(row["image_blob"], row["mime_type"])
+        if not data_url:
+            continue
+        image_entries.append({
+            "filename": row["filename"],
+            "data_url": data_url,
+            "caption": row["caption"] or "",
+            "imported_at": row["imported_at"],
+        })
+    primary_image = image_entries[0] if image_entries else None
+    gallery_images = image_entries[1:] if len(image_entries) > 1 else []
+
+    graph_images = []
+    graph_docs = []
+    for row in graph_rows:
+        data_url = _data_uri(row["graph_blob"], row["mime_type"])
+        if row["mime_type"] and row["mime_type"].startswith("image/"):
+            if data_url:
+                graph_images.append({
+                    "filename": row["filename"],
+                    "data_url": data_url,
+                    "note": row["note"] or "",
+                    "imported_at": row["imported_at"],
+                })
         else:
-            # for PDFs, we cannot embed as <img>; leave to main app streaming URL
-            linked_pdfs.append({"filename": r["filename"]})
+            if data_url:
+                graph_docs.append({
+                    "filename": row["filename"],
+                    "data_url": data_url,
+                    "note": row["note"] or "",
+                    "imported_at": row["imported_at"],
+                })
 
-    # Checklist answers (value-only rows)
+    project_attachment = None
+    if project_row:
+        project_attachment = {
+            "label": "g9 Project",
+            "filename": project_row["filename"],
+            "download_url": _text_data_uri(project_row["raw_text"]),
+            "imported_at": project_row["imported_at"],
+        }
+
+    set_attachment = None
+    if set_row:
+        set_attachment = {
+            "label": "g9 Set",
+            "filename": set_row["filename"],
+            "download_url": _text_data_uri(set_row["raw_text"]),
+            "imported_at": set_row["imported_at"],
+        }
+
+    attachments = [a for a in [project_attachment, set_attachment] if a]
+
     checklist_rows = _collect_checklist_answers(survey_id)
+    stages = []
+    from collections import OrderedDict
+    grouped = OrderedDict()
+    for row in checklist_rows:
+        grouped.setdefault(row["stage_title"], []).append(row)
+    for title, items in grouped.items():
+        stages.append({
+            "title": title,
+            "entries": items,
+        })
 
-    print(keys)
-    print(site)
-    print(qm)
-
-    ctx = {
+    context = {
         "request": request,
         "generated_at": _now_iso(),
-        "survey_id": survey_id,
-        "measurement": dict(m),
-        "files": {
-            "project": g9p["filename"] if g9p else None,
-            "set": g9s["filename"] if g9s else None,
-        },
-        "keys": keys,
-        "site": site,
-        "qm": qm,
-        "thr": THR,
-        "sets": g9s_meta.get("rows", []) if g9s_meta else [],
-        "images": embedded_images,
-        "graphs": embedded_graphs,
-        "pdfs": linked_pdfs,  # listed by filename only
-        "checklist": checklist_rows,
+        "survey": survey_dict,
+        "measurement": measurement_dict,
+        "summary_items": summary_items,
+        "metrics": metrics,
+        "site_details": site_details,
+        "totals_details": totals_details,
+        "set_rows": set_rows,
+        "primary_image": primary_image,
+        "gallery_images": gallery_images,
+        "graph_images": graph_images,
+        "graph_docs": graph_docs,
+        "attachments": attachments,
+        "checklist_stages": stages,
+        "header_html": header_html,
+        "footer_html": footer_html,
     }
-    return TEMPLATES.TemplateResponse("measurement_report.html", ctx)
+
+    return TEMPLATES.TemplateResponse("measurement_report_print.html", context)

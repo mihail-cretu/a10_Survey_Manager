@@ -5,34 +5,263 @@
   <title>{% block title %}Site Surveys{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:0;background:#f7f7f8;color:#1f2328}
-    header,main,footer{max-width:95%;margin:auto;padding:16px}
-    header{display:flex;justify-content:space-between;align-items:center}
-    a{color:#0b5fff;text-decoration:none}
-    .btn{display:inline-block;padding:8px 12px;border-radius:8px;border:1px solid #d0d7de;background:#fff}
-    .btn.primary{background:#0b5fff;color:#fff;border-color:#0b5fff}
-    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e6e8eb}
-    th,td{padding:10px;border-top:1px solid #e6e8eb}
-    th{text-align:left;background:#f0f2f4}
-    form .row{display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:center;margin:8px 0}
-    input,select,textarea{width:100%;padding:8px;border:1px solid #d0d7de;border-radius:8px;background:#fff}
-    .muted{color:#6b7280}
-    .actions{display:flex;gap:8px;flex-wrap:wrap}
-    .card{background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:16px}
+    :root {
+      --site-green: #15803d;
+      --site-green-hover: #166534;
+      --measure-blue: #2563eb;
+      --measure-blue-hover: #1d4ed8;
+      --danger-red: #dc2626;
+      --danger-red-hover: #b91c1c;
+      --slate-50: #f8fafc;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-500: #64748b;
+      --slate-900: #0f172a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Arial, sans-serif;
+      margin: 0;
+      background: var(--slate-50);
+      color: #1f2328;
+      line-height: 1.45;
+    }
+
+    header, main, footer {
+      /* max-width: 1100px; */
+      margin: auto;
+      padding: 16px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .brand a {
+      color: var(--slate-900);
+      text-decoration: none;
+    }
+
+    .main-menu,
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .main-menu {
+      margin-left: auto;
+    }
+
+    a {
+      color: var(--measure-blue);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #d0d7de;
+      background: #fff;
+      color: #1f2328;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .btn:hover {
+      background: var(--slate-100);
+    }
+
+    .btn-site {
+      background: var(--site-green);
+      border-color: var(--site-green);
+      color: #fff;
+    }
+
+    .btn-site:hover {
+      background: var(--site-green-hover);
+      border-color: var(--site-green-hover);
+      color: #fff;
+    }
+
+    .btn-measure {
+      background: var(--measure-blue);
+      border-color: var(--measure-blue);
+      color: #fff;
+    }
+
+    .btn-measure:hover {
+      background: var(--measure-blue-hover);
+      border-color: var(--measure-blue-hover);
+      color: #fff;
+    }
+
+    .btn-danger {
+      background: var(--danger-red);
+      border-color: var(--danger-red);
+      color: #fff;
+    }
+
+    .btn-danger:hover {
+      background: var(--danger-red-hover);
+      border-color: var(--danger-red-hover);
+      color: #fff;
+    }
+
+    .breadcrumbs {
+      margin: 12px 0 8px 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      color: var(--slate-500);
+    }
+
+    .breadcrumbs a {
+      color: var(--measure-blue);
+      text-decoration: none;
+    }
+
+    .breadcrumbs .current {
+      color: var(--slate-900);
+      font-weight: 600;
+    }
+
+    .breadcrumbs .sep {
+      color: var(--slate-500);
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid var(--slate-200);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border: 1px solid var(--slate-200);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--slate-200);
+      text-align: left;
+    }
+
+    th {
+      background: var(--slate-100);
+      font-weight: 600;
+      color: var(--slate-900);
+    }
+
+    .muted {
+      color: var(--slate-500);
+    }
+
+    .mono {
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    form .row {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 12px;
+      align-items: center;
+      margin: 10px 0;
+    }
+
+    label {
+      font-weight: 600;
+      color: var(--slate-900);
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid #d0d7de;
+      background: #fff;
+      font-size: 15px;
+    }
+
+    main {
+      padding-bottom: 40px;
+    }
+
+    footer {
+      font-size: 13px;
+      color: var(--slate-500);
+      padding-top: 0;
+    }
   </style>
 </head>
 <body>
 <header>
-  <div><a href="/site-surveys"><strong>Site Surveys</strong></a></div>
-  <nav class="actions">
-    <a class="btn primary" href="/site-surveys/new">New Survey</a>
+  <div class="brand"><a href="/site-surveys">Site Surveys</a></div>
+  <nav class="main-menu">
+    <a class="btn btn-site" href="/site-surveys">Site Surveys</a>
+    {% block header_menu %}{% endblock %}
   </nav>
+  &bullet;
+  <div class="header-actions">
+    {% block header_actions %}
+      <a class="btn btn-site" href="/site-surveys/new">New Survey</a>
+    {% endblock %}
+  </div>
 </header>
 <main>
+  {% block breadcrumbs %}
+    {% if breadcrumbs %}
+      <nav class="breadcrumbs">
+        {% for crumb in breadcrumbs %}
+          {% if not loop.first %}<span class="sep">&gt;</span>{% endif %}
+          {% if crumb.url %}
+            <a href="{{ crumb.url }}">{{ crumb.label }}</a>
+          {% else %}
+            <span class="current">{{ crumb.label }}</span>
+          {% endif %}
+        {% endfor %}
+      </nav>
+    {% endif %}
+  {% endblock %}
+
   {% block content %}{% endblock %}
 </main>
 <footer>
-  <p class="muted">A10 — minimal UI</p>
+  <p class="muted">A10 - minimal UI</p>
 </footer>
 </body>
 </html>

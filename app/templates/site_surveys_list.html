@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Site Surveys{% endblock %}
+{% block breadcrumbs %}{% endblock %}
 {% block content %}
 <h1>Site Surveys</h1>
 
@@ -13,27 +14,20 @@
         <th>Code</th>
         <th>Status</th>
         <th>Updated</th>
-        <th>Operations</th>
-        <th></th>
+        <th style="white-space:nowrap;">Quick Links</th>
       </tr>
     </thead>
     <tbody>
     {% for s in surveys %}
       <tr>
-        <td>{{ s.id }}</td>
+        <td class="mono">{{ s.id }}</td>
         <td><a href="/site-surveys/{{ s.id }}">{{ s.name }}</a></td>
         <td>{{ s.code or "-" }}</td>
         <td>{{ s.status }}</td>
-        <td>{{ s.updated_at }}</td>
-        <td>
-          <a class="btn" href="/site-surveys/{{ s.id }}/preflight/start">Preflight Checklist</a>
-          <a class="btn" href="/site-surveys/{{ s.id }}/measurements">Measurements</a>
-        </td>
-        <td>
-          <a class="btn" href="/site-surveys/{{ s.id }}/edit">Edit Survey</a>
-          <form method="post" action="/site-surveys/{{ s.id }}/delete" style="display:inline;" onsubmit="return confirm('Delete this survey?');">
-            <button class="btn" type="submit">Delete Survey</button>
-          </form>
+        <td class="muted">{{ s.updated_at }}</td>
+        <td class="actions">
+          <a class="btn btn-site" href="/site-surveys/{{ s.id }}/preflight/start">Preflight</a>
+          <a class="btn btn-measure" href="/site-surveys/{{ s.id }}/measurements">Measurements</a>
         </td>
       </tr>
     {% endfor %}

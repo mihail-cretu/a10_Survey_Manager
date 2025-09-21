@@ -164,7 +164,7 @@ def parse_project_text(text: str) -> Dict[str, Any]:
         "Latitude (dd,+N)": lat,
         "Longitude (dd, +E)": lon,
         "Elevation (m)": elev,
-        "Gradient (µGal/cm)": pick("Gradient (µGal/cm)", "Gradient"),
+        "Gradient (µGal/cm)": pick("Gradient"),
         "Setup Height (cm)": pick("Setup Height (cm)", "Setup Height"),
         "Transfer Height (cm)": pick("Transfer Height (cm)", "Transfer Height"),
         "Factory Height (cm)": pick("Factory Height (cm)", "Factory Height"),
@@ -258,6 +258,14 @@ def _ensure_survey_exists(survey_id: int):
         if not row:
             raise HTTPException(status_code=404, detail="Site Survey not found")
 
+
+def _get_survey(survey_id: int):
+    with _db() as con:
+        row = con.execute("SELECT * FROM site_surveys WHERE id=?", (survey_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Site Survey not found")
+    return row
+
 def _get_measurement(measurement_id: int):
     with _db() as con:
         row = con.execute("SELECT * FROM measurements WHERE id=?", (measurement_id,)).fetchone()
@@ -265,18 +273,22 @@ def _get_measurement(measurement_id: int):
 
 # ---- Routes
 
+
 @router.get("")
 def list_measurements(request: Request, survey_id: int):
-    _ensure_survey_exists(survey_id)
+    survey_row = _get_survey(survey_id)
     with _db() as con:
-        rows = con.execute("""
+        rows = con.execute(
+            """
             SELECT m.*,
                    mp.meta_json AS project_meta
             FROM measurements m
             LEFT JOIN measurement_project mp ON mp.measurement_id = m.id
             WHERE m.survey_id = ?
             ORDER BY m.title ASC
-        """, (survey_id,)).fetchall()
+            """,
+            (survey_id,),
+        ).fetchall()
 
     def safe_load(s):
         try:
@@ -285,11 +297,12 @@ def list_measurements(request: Request, survey_id: int):
             return {}
 
     def nfloat(x):
-        if x is None: return None
+        if x is None:
+            return None
         t = str(x).replace(",", ".")
-        import re
-        m = re.search(r"-?\d+(?:\.\d+)?", t)
-        return float(m.group(0)) if m else None
+        import re as _re
+        match = _re.search(r"-?\d+(?:\.\d+)?", t)
+        return float(match.group(0)) if match else None
 
     def nint(x):
         f = nfloat(x)
@@ -299,55 +312,66 @@ def list_measurements(request: Request, survey_id: int):
     for r in rows:
         pm = safe_load(r["project_meta"])
         site = (pm.get("site") or {})
-        qm   = (pm.get("qm")   or {})
+        qm = (pm.get("qm") or {})
         keys = (pm.get("keys") or {})
 
-        # Quality (from qm)
-        pss  = qm.get("project_set_scatter")        # µGal
-        ssov = qm.get("set_scatter_overall")        # µGal
-        gravity = site.get("Gravity (µGal)")
+        pss = qm.get("project_set_scatter")
+        ssov = qm.get("set_scatter_overall")
+        gravity = site.get("Gravity (uGal)")
 
-        # Totals (from project keys)
-        sets_total      = nint(keys.get("Number of Sets"))
-        drops_total     = nint(keys.get("Number of Drops"))
-        sets_processed  = keys.get("Set #s Processed") or None
-        sets_ignored    = keys.get("Number of Sets NOT Processed") or None
-        drops_accepted  = nint(keys.get("Total Drops Accepted"))
-        drops_rejected  = nint(keys.get("Total Drops Rejected"))
+        sets_total = nint(keys.get("Number of Sets"))
+        drops_total = nint(keys.get("Number of Drops"))
+        sets_processed = keys.get("Set #s Processed") or None
+        sets_ignored = keys.get("Number of Sets NOT Processed") or None
+        drops_accepted = nint(keys.get("Total Drops Accepted"))
+        drops_rejected = nint(keys.get("Total Drops Rejected"))
 
         acc_pct = None
         if drops_accepted is not None and drops_rejected is not None and (drops_accepted + drops_rejected) > 0:
             acc_pct = round(drops_accepted * 100.0 / (drops_accepted + drops_rejected), 1)
 
-        items.append({
-            "id": r["id"],
-            "title": r["title"],
-            "note": r["note"],
-            "created_at": r["created_at"],
-            "keys":keys,
-            "pss": pss,
-            "ssov": ssov,
-            "gravity": gravity,
-            "sets_at_drops": (f"{sets_total}@{drops_total}" if (sets_total is not None and drops_total is not None) else "—"),
-            "sets_processed": sets_processed or "—",
-            "sets_ignored": sets_ignored or "—",
-            "drops_accepted": drops_accepted,
-            "drops_rejected": drops_rejected,
-            "accepted_pct": acc_pct,
-        })
+        items.append(
+            {
+                "id": r["id"],
+                "title": r["title"],
+                "note": r["note"],
+                "created_at": r["created_at"],
+                "keys": keys,
+                "pss": pss,
+                "ssov": ssov,
+                "gravity": gravity,
+                "sets_at_drops": f"{sets_total}@{drops_total}" if (sets_total is not None and drops_total is not None) else "-",
+                "sets_processed": sets_processed or "-",
+                "sets_ignored": sets_ignored or "-",
+                "drops_accepted": drops_accepted,
+                "drops_rejected": drops_rejected,
+                "accepted_pct": acc_pct,
+            }
+        )
 
+    survey = dict(survey_row)
     return TEMPLATES.TemplateResponse(
         "measurements_list.html",
-        {"request": request, "survey_id": survey_id, "items": items},
+        {"request": request, "survey_id": survey_id, "survey": survey, "items": items},
     )
+
+
 
 @router.get("/new")
 def new_measurement_form(request: Request, survey_id: int):
-    _ensure_survey_exists(survey_id)
+    survey = dict(_get_survey(survey_id))
     return TEMPLATES.TemplateResponse(
         "measurement_new.html",
-        {"request": request, "survey_id": survey_id},
+        {
+            "request": request,
+            "survey_id": survey_id,
+            "survey": survey,
+            "title": "New Measurement",
+            "action": f"/site-surveys/{survey_id}/measurements/new",
+            "measurement": None,
+        },
     )
+
 
 @router.post("/new")
 def create_measurement(survey_id: int, title: str = Form(...), note: str = Form("")):
@@ -361,9 +385,35 @@ def create_measurement(survey_id: int, title: str = Form(...), note: str = Form(
         con.commit()
     return RedirectResponse(url=f"/site-surveys/{survey_id}/measurements/{mid}", status_code=303)
 
+@router.get("/{measurement_id}/edit")
+def edit_measurement_form(request: Request, survey_id: int, measurement_id: int):
+    survey = dict(_get_survey(survey_id))
+    meas = _get_measurement(measurement_id)
+    if not meas or meas["survey_id"] != survey_id:
+        raise HTTPException(status_code=404, detail="Measurement not found")
+    return TEMPLATES.TemplateResponse(
+        "measurement_new.html",
+        {"request": request, "survey_id": survey_id, "survey": survey, "title": f"Edit Measurement - {meas['title']}", "action": f"/site-surveys/{survey_id}/measurements/{measurement_id}/edit", "measurement": dict(meas)},
+    )
+
+@router.post("/{measurement_id}/edit")
+def update_measurement(survey_id: int, measurement_id: int, title: str = Form(...), note: str = Form("")):
+    _get_survey(survey_id)  # ensure survey exists
+    meas = _get_measurement(measurement_id)
+    if not meas or meas["survey_id"] != survey_id:
+        raise HTTPException(status_code=404, detail="Measurement not found")
+    with _db() as con:
+        con.execute("UPDATE measurements SET title=?, note=? WHERE id=?", (title, note, measurement_id))
+        con.commit()
+    return RedirectResponse(
+        url=f"/site-surveys/{survey_id}/measurements/{measurement_id}",
+        status_code=status.HTTP_303_SEE_OTHER
+    )
+
+
 @router.get("/{measurement_id}")
 def measurement_detail(request: Request, survey_id: int, measurement_id: int):
-    _ensure_survey_exists(survey_id)
+    survey_row = _get_survey(survey_id)
     meas = _get_measurement(measurement_id)
     if not meas or meas["survey_id"] != survey_id:
         raise HTTPException(status_code=404, detail="Measurement not found")
@@ -374,7 +424,6 @@ def measurement_detail(request: Request, survey_id: int, measurement_id: int):
         imgs = con.execute("SELECT id, filename FROM measurement_images WHERE measurement_id=? ORDER BY id DESC", (measurement_id,)).fetchall()
         graphs = con.execute("SELECT id, filename, mime_type FROM measurement_graphs WHERE measurement_id=? ORDER BY id DESC", (measurement_id,)).fetchall()
 
-    # derive simple quality chips from stored meta_json if present
     qm = None
     if g9p:
         try:
@@ -383,11 +432,13 @@ def measurement_detail(request: Request, survey_id: int, measurement_id: int):
         except Exception:
             qm = None
 
+    survey = dict(survey_row)
     return TEMPLATES.TemplateResponse(
         "measurement_detail.html",
         {
             "request": request,
             "survey_id": survey_id,
+            "survey": survey,
             "m": meas,
             "g9p": g9p,
             "g9s": g9s,
@@ -398,7 +449,6 @@ def measurement_detail(request: Request, survey_id: int, measurement_id: int):
         },
     )
 
-# ---- Upload handlers
 
 @router.post("/{measurement_id}/upload/project")
 async def upload_project(survey_id: int, measurement_id: int, file: UploadFile = File(...)):
@@ -444,6 +494,38 @@ ALLOWED_GRAPH = ALLOWED_IMG | {".pdf"}
 
 def _ext(name: str) -> str:
     return Path(name).suffix.lower()
+
+@router.post("/{measurement_id}/project/delete")
+def delete_project(survey_id: int, measurement_id: int):
+    meas = _get_measurement(measurement_id)
+    if not meas or meas["survey_id"] != survey_id:
+        raise HTTPException(status_code=404, detail="Measurement not found")
+    with _db() as con:
+        cur = con.execute("DELETE FROM measurement_project WHERE measurement_id=?", (measurement_id,))
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Project file not found")
+        con.commit()
+    return RedirectResponse(
+        url=f"/site-surveys/{survey_id}/measurements/{measurement_id}",
+        status_code=status.HTTP_303_SEE_OTHER
+    )
+
+
+@router.post("/{measurement_id}/set/delete")
+def delete_set(survey_id: int, measurement_id: int):
+    meas = _get_measurement(measurement_id)
+    if not meas or meas["survey_id"] != survey_id:
+        raise HTTPException(status_code=404, detail="Measurement not found")
+    with _db() as con:
+        cur = con.execute("DELETE FROM measurement_set WHERE measurement_id=?", (measurement_id,))
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Set file not found")
+        con.commit()
+    return RedirectResponse(
+        url=f"/site-surveys/{survey_id}/measurements/{measurement_id}",
+        status_code=status.HTTP_303_SEE_OTHER
+    )
+
 
 @router.post("/{measurement_id}/upload/images")
 async def upload_images(
@@ -500,6 +582,37 @@ def get_image(survey_id: int, measurement_id: int, image_id: int):
         if not row: raise HTTPException(status_code=404, detail="Image not found")
     return Response(content=row["image_blob"], media_type=row["mime_type"] or "application/octet-stream",
                     headers={"Content-Disposition": f'inline; filename="{row["filename"]}"'})
+
+@router.post("/{measurement_id}/image/{image_id}/delete")
+def delete_image(survey_id: int, measurement_id: int, image_id: int):
+    meas = _get_measurement(measurement_id)
+    if not meas or meas["survey_id"] != survey_id:
+        raise HTTPException(status_code=404, detail="Measurement not found")
+    with _db() as con:
+        cur = con.execute("DELETE FROM measurement_images WHERE id=? AND measurement_id=?", (image_id, measurement_id))
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Image not found")
+        con.commit()
+    return RedirectResponse(
+        url=f"/site-surveys/{survey_id}/measurements/{measurement_id}",
+        status_code=status.HTTP_303_SEE_OTHER
+    )
+
+
+@router.post("/{measurement_id}/graph/{graph_id}/delete")
+def delete_graph(survey_id: int, measurement_id: int, graph_id: int):
+    meas = _get_measurement(measurement_id)
+    if not meas or meas["survey_id"] != survey_id:
+        raise HTTPException(status_code=404, detail="Measurement not found")
+    with _db() as con:
+        cur = con.execute("DELETE FROM measurement_graphs WHERE id=? AND measurement_id=?", (graph_id, measurement_id))
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Graph not found")
+        con.commit()
+    return RedirectResponse(
+        url=f"/site-surveys/{survey_id}/measurements/{measurement_id}",
+        status_code=status.HTTP_303_SEE_OTHER
+    )
 
 @router.get("/{measurement_id}/graph/{graph_id}")
 def get_graph(survey_id: int, measurement_id: int, graph_id: int):

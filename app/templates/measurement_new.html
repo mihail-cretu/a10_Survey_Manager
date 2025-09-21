@@ -1,20 +1,47 @@
 {% extends "base.html" %}
-{% block title %}New Measurement — Survey {{ survey_id }}{% endblock %}
+{% block title %}{{ title }} - {{ survey.name }}{% endblock %}
+{% block header_menu %}
+  <a class="btn btn-measure" href="/site-surveys/{{ survey.id }}/measurements">Measurements</a>
+  <a class="btn btn-measure" href="/site-surveys/{{ survey.id }}/measurements/new">New Measurement</a>
+{% endblock %}
+{% block header_actions %}
+  <a class="btn btn-site" href="/site-surveys/{{ survey.id }}">Survey Overview</a>
+  {% if measurement %}
+    <a class="btn btn-measure" href="/site-surveys/{{ survey.id }}/measurements/{{ measurement['id'] }}">View Measurement</a>
+  {% endif %}
+{% endblock %}
+{% block breadcrumbs %}
+  {% set breadcrumbs = [
+    {"label": "Site Surveys", "url": "/site-surveys"},
+    {"label": survey.name, "url": "/site-surveys/" ~ survey.id},
+    {"label": "Measurements", "url": "/site-surveys/" ~ survey.id ~ "/measurements"},
+    {"label": measurement['title'] if measurement else "New", "url": None},
+  ] %}
+  {{ super() }}
+{% endblock %}
 {% block content %}
-<h1>New Measurement</h1>
+<h1>{{ title }}</h1>
+<p class="muted">Survey {{ survey.name }} ({{ survey.code or '-' }})</p>
 
-<form method="post" action="/site-surveys/{{ survey_id }}/measurements/new">
+<form method="post" action="{{ action }}" class="card" style="margin-top:16px;">
   <div class="row">
     <label for="title">Title*</label>
-    <input id="title" name="title" required placeholder="e.g., 2025-08-24 Morning Run">
+    <input id="title" name="title" required value="{{ measurement['title'] if measurement else '' }}" placeholder="e.g., 2025-08-24 Morning Run">
   </div>
   <div class="row">
     <label for="note">Note</label>
-    <input id="note" name="note" placeholder="Optional note">
+    <input id="note" name="note" value="{{ measurement['note'] if measurement else '' }}" placeholder="Optional note">
   </div>
-  <div class="actions" style="margin-top:10px;">
-    <button class="btn primary" type="submit">Create</button>
-    <a class="btn" href="/site-surveys/{{ survey_id }}/measurements">Cancel</a>
+  <div class="actions" style="margin-top:16px;">
+    <button class="btn btn-measure" type="submit">Save</button>
+    <a class="btn" href="/site-surveys/{{ survey.id }}/measurements">Cancel</a>
   </div>
 </form>
+
+{% if measurement %}
+  <form method="post" action="/site-surveys/{{ survey.id }}/measurements/{{ measurement['id'] }}/delete" onsubmit="return confirm('Delete this measurement?');" style="margin-top:24px;">
+    <button class="btn btn-danger" type="submit">Delete Measurement</button>
+  </form>
+{% endif %}
 {% endblock %}
+

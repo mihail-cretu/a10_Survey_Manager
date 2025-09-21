@@ -1,22 +1,52 @@
 {% extends "base.html" %}
-{% block title %}Measurement — {{ m.title }}{% endblock %}
+{% block title %}Measurement - {{ m.title }}{% endblock %}
+{% block header_menu %}
+  <a class="btn btn-measure" href="/site-surveys/{{ survey.id }}/measurements">Measurements</a>
+  <a class="btn btn-measure" href="/site-surveys/{{ survey.id }}/measurements/new">New Measurement</a>
+{% endblock %}
+{% block header_actions %}
+  <a class="btn btn-site" href="/site-surveys/{{ survey.id }}">Survey Overview</a>
+  <a class="btn btn-measure" href="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/edit">Edit Measurement</a>
+{% endblock %}
+{% block breadcrumbs %}
+  {% set breadcrumbs = [
+    {"label": "Site Surveys", "url": "/site-surveys"},
+    {"label": survey.name, "url": "/site-surveys/" ~ survey.id},
+    {"label": "Measurements", "url": "/site-surveys/" ~ survey.id ~ "/measurements"},
+    {"label": m.title, "url": None},
+  ] %}
+  {{ super() }}
+{% endblock %}
 {% block content %}
 <h1>{{ m.title }}</h1>
-<p class="muted">Survey #{{ survey_id }} • Created {{ m.created_at }}{% if m.note %} • {{ m.note }}{% endif %}</p>
+<p class="muted">Survey {{ survey.name }} ({{ survey.code or '-' }}) - Created {{ m.created_at }}{% if m.note %} - {{ m.note }}{% endif %}</p>
+
+<div class="card summary-card">
+  <div>
+    <p><strong>Measurement ID</strong> {{ m.id }}</p>
+    <p><strong>Status</strong> {{ survey.status }}</p>
+  </div>
+  <div class="actions">
+    <a class="btn btn-measure" href="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/report">Measurement Report</a>
+  </div>
+</div>
 
 <div class="grid g2">
   <div class="card">
     <h3>g9 Project</h3>
     {% if g9p %}
       <div class="kv"><div class="k">File</div><div>{{ g9p.filename }}</div></div>
+      <form class="inline-form" method="post" action="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/project/delete" onsubmit="return confirm('Delete the g9 project file?');" style="margin:8px 0;">
+        <button class="btn btn-danger" type="submit">Delete Project File</button>
+      </form>
       {% set meta = g9p.meta_json | loadjson %}
       {% set site = meta.site %}
       <div style="margin-top:8px;">
         <strong>General</strong>
-        <div class="kv"><div class="k">Site</div><div>{{ site["Station / Site Name"] or "—" }}</div></div>
-        <div class="kv"><div class="k">Code</div><div>{{ site["Site Code"] or "—" }}</div></div>
-        <div class="kv"><div class="k">Lat, Lon</div><div>{{ site["Latitude (dd,+N)"] or "—" }}, {{ site["Longitude (dd, +E)"] or "—" }}</div></div>
-        <div class="kv"><div class="k">Elevation (m)</div><div>{{ site["Elevation (m)"] or "—" }}</div></div>
+        <div class="kv"><div class="k">Site</div><div>{{ site["Station / Site Name"] or "-" }}</div></div>
+        <div class="kv"><div class="k">Code</div><div>{{ site["Site Code"] or "-" }}</div></div>
+        <div class="kv"><div class="k">Lat, Lon</div><div>{{ site["Latitude (dd,+N)"] or "-" }}, {{ site["Longitude (dd, +E)"] or "-" }}</div></div>
+        <div class="kv"><div class="k">Elevation (m)</div><div>{{ site["Elevation (m)"] or "-" }}</div></div>
       </div>
       <div style="margin-top:8px;">
         <strong>Quality</strong><br>
@@ -26,19 +56,19 @@
           {% set ups = qm.uncertainty_per_set %}
           {% set tu  = qm.total_uncertainty %}
           {% set ssov= qm.set_scatter_overall %}
-          <span class="chip {% if pss and pss <= thr.pss.g %}good{% elif pss and pss <= thr.pss.w %}warn{% elif pss %}poor{% endif %}">Project Set Scatter: {{ pss if pss is not none else "—" }} µGal</span>
-          <span class="chip {% if ups and ups <= thr.ups.g %}good{% elif ups and ups <= thr.ups.w %}warn{% elif ups %}poor{% endif %}">Uncertainty / Set: {{ ups if ups is not none else "—" }} µGal</span>
-          <span class="chip {% if tu and tu <= thr.tu.g %}good{% elif tu and tu <= thr.tu.w %}warn{% elif tu %}poor{% endif %}">Total Uncertainty: {{ tu if tu is not none else "—" }} µGal</span>
-          <span class="chip {% if ssov and ssov <= thr.ssov.g %}good{% elif ssov and ssov <= thr.ssov.w %}warn{% elif ssov %}poor{% endif %}">Set Scatter (overall): {{ ssov if ssov is not none else "—" }} µGal</span>
+          <span class="chip {% if pss and pss <= thr.pss.g %}good{% elif pss and pss <= thr.pss.w %}warn{% elif pss %}poor{% endif %}">Project Set Scatter: {{ pss if pss is not none else "-" }} uGal</span>
+          <span class="chip {% if ups and ups <= thr.ups.g %}good{% elif ups and ups <= thr.ups.w %}warn{% elif ups %}poor{% endif %}">Uncertainty / Set: {{ ups if ups is not none else "-" }} uGal</span>
+          <span class="chip {% if tu and tu <= thr.tu.g %}good{% elif tu and tu <= thr.tu.w %}warn{% elif tu %}poor{% endif %}">Total Uncertainty: {{ tu if tu is not none else "-" }} uGal</span>
+          <span class="chip {% if ssov and ssov <= thr.ssov.g %}good{% elif ssov and ssov <= thr.ssov.w %}warn{% elif ssov %}poor{% endif %}">Set Scatter (overall): {{ ssov if ssov is not none else "-" }} uGal</span>
         {% else %}
           <span class="note">No quality metrics parsed.</span>
         {% endif %}
       </div>
     {% else %}
-      <form method="post" action="/site-surveys/{{ survey_id }}/measurements/{{ m.id }}/upload/project" enctype="multipart/form-data">
+      <form method="post" action="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/upload/project" enctype="multipart/form-data" class="upload-form">
         <label>Upload *.project.txt</label>
         <input type="file" name="file" accept=".project.txt" required>
-        <button class="btn" type="submit">Upload</button>
+        <button class="btn btn-measure" type="submit">Upload</button>
       </form>
     {% endif %}
   </div>
@@ -47,12 +77,15 @@
     <h3>g9 Set</h3>
     {% if g9s %}
       <div class="kv"><div class="k">File</div><div>{{ g9s.filename }}</div></div>
+      <form class="inline-form" method="post" action="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/set/delete" onsubmit="return confirm('Delete the g9 set file?');" style="margin:8px 0;">
+        <button class="btn btn-danger" type="submit">Delete Set File</button>
+      </form>
       {% set meta = g9s.meta_json | loadjson %}
       {% set rows = meta.rows %}
       {% if rows and rows|length %}
-        <table>
+        <table class="compact-table">
           <thead><tr>
-            <th>Set #</th><th>Set Scatter (µGal)</th><th>Set Sigma</th><th>Drop RMS</th><th>% Acceptance</th>
+            <th>Set #</th><th>Set Scatter (uGal)</th><th>Set Sigma</th><th>Drop RMS</th><th>% Acceptance</th>
           </tr></thead>
           <tbody>
           {% for r in rows %}
@@ -62,16 +95,16 @@
               <td>
                 {% set val = r.set_scatter %}
                 <span class="pill {% if val is not none and val > thr.ss.w %}poor{% elif val is not none and val > thr.ss.g %}warn{% endif %}">
-                  {{ val if val is not none else "—" }}
+                  {{ val if val is not none else "-" }}
                 </span>
               </td>
-              <td>{{ r.set_sigma if r.set_sigma is not none else "—" }}</td>
-              <td>{{ r.drop_rms if r.drop_rms is not none else "—" }}</td>
+              <td>{{ r.set_sigma if r.set_sigma is not none else "-" }}</td>
+              <td>{{ r.drop_rms if r.drop_rms is not none else "-" }}</td>
               <td>
                 <span class="pill {% if ac is not none and ac < thr.acc.p %}poor{% elif ac is not none and ac < thr.acc.w %}warn{% endif %}">
-                  {{ ac if ac is not none else "—" }}%
+                  {{ ac if ac is not none else "-" }}%
                 </span>
-                 {{ r.drop_accept | int() if r.drop_accept is not none else "—" }}A / {{ r.drop_reject | int() if r.drop_reject is not none else "—" }}R
+                {{ r.drop_accept | int() if r.drop_accept is not none else "-" }}A / {{ r.drop_reject | int() if r.drop_reject is not none else "-" }}R
               </td>
             </tr>
           {% endfor %}
@@ -81,10 +114,10 @@
         <div class="note">No rows parsed.</div>
       {% endif %}
     {% else %}
-      <form method="post" action="/site-surveys/{{ survey_id }}/measurements/{{ m.id }}/upload/set" enctype="multipart/form-data">
+      <form method="post" action="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/upload/set" enctype="multipart/form-data" class="upload-form">
         <label>Upload *.set.txt</label>
         <input type="file" name="file" accept=".set.txt" required>
-        <button class="btn" type="submit">Upload</button>
+        <button class="btn btn-measure" type="submit">Upload</button>
       </form>
     {% endif %}
   </div>
@@ -93,16 +126,21 @@
 <div class="grid g2">
   <div class="card">
     <h3>Site Images</h3>
-    <form method="post" action="/site-surveys/{{ survey_id }}/measurements/{{ m.id }}/upload/images" enctype="multipart/form-data">
+    <form method="post" action="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/upload/images" enctype="multipart/form-data" class="upload-form">
       <input type="file" name="files" accept="image/*" multiple required>
       <input type="text" name="caption" placeholder="Caption (optional)">
-      <button class="btn" type="submit">Upload</button>
+      <button class="btn btn-measure" type="submit">Upload</button>
     </form>
-    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+    <div class="thumb-grid">
       {% for im in imgs %}
-        <a href="/site-surveys/{{ survey_id }}/measurements/{{ m.id }}/image/{{ im.id }}" target="_blank" title="{{ im.filename }}">
-          <img src="/site-surveys/{{ survey_id }}/measurements/{{ m.id }}/image/{{ im.id }}" alt="{{ im.filename }}" style="height:90px;border:1px solid #e6e8eb;border-radius:8px;">
-        </a>
+        <div class="thumb-card">
+          <a href="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/image/{{ im.id }}" target="_blank" title="{{ im.filename }}">
+            <img src="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/image/{{ im.id }}" alt="{{ im.filename }}" class="thumb-img">
+          </a>
+          <form class="inline-form" method="post" action="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/image/{{ im.id }}/delete" onsubmit="return confirm('Delete this image?');">
+            <button class="btn btn-danger" type="submit">Delete</button>
+          </form>
+        </div>
       {% endfor %}
       {% if not imgs or imgs|length==0 %}
         <div class="note">No images.</div>
@@ -112,20 +150,25 @@
 
   <div class="card">
     <h3>g9 Graphs</h3>
-    <form method="post" action="/site-surveys/{{ survey_id }}/measurements/{{ m.id }}/upload/graphs" enctype="multipart/form-data">
+    <form method="post" action="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/upload/graphs" enctype="multipart/form-data" class="upload-form">
       <input type="file" name="files" accept="image/*,.pdf" multiple required>
       <input type="text" name="note" placeholder="Note (optional)">
-      <button class="btn" type="submit">Upload</button>
+      <button class="btn btn-measure" type="submit">Upload</button>
     </form>
-    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+    <div class="thumb-grid">
       {% for gr in graphs %}
-        {% if gr.mime_type and 'pdf' in gr.mime_type %}
-          <a class="btn" href="/site-surveys/{{ survey_id }}/measurements/{{ m.id }}/graph/{{ gr.id }}" target="_blank">{{ gr.filename }}</a>
-        {% else %}
-          <a href="/site-surveys/{{ survey_id }}/measurements/{{ m.id }}/graph/{{ gr.id }}" target="_blank" title="{{ gr.filename }}">
-            <img src="/site-surveys/{{ survey_id }}/measurements/{{ m.id }}/graph/{{ gr.id }}" alt="{{ gr.filename }}" style="height:90px;border:1px solid #e6e8eb;border-radius:8px;">
-          </a>
-        {% endif %}
+        <div class="thumb-card">
+          {% if gr.mime_type and 'pdf' in gr.mime_type %}
+            <a class="btn btn-measure" href="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/graph/{{ gr.id }}" target="_blank">{{ gr.filename }}</a>
+          {% else %}
+            <a href="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/graph/{{ gr.id }}" target="_blank" title="{{ gr.filename }}">
+              <img src="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/graph/{{ gr.id }}" alt="{{ gr.filename }}" class="thumb-img">
+            </a>
+          {% endif %}
+          <form class="inline-form" method="post" action="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/graph/{{ gr.id }}/delete" onsubmit="return confirm('Delete this graph?');">
+            <button class="btn btn-danger" type="submit">Delete</button>
+          </form>
+        </div>
       {% endfor %}
       {% if not graphs or graphs|length==0 %}
         <div class="note">No graphs.</div>
@@ -134,29 +177,33 @@
   </div>
 </div>
 
-<div class="actions" style="margin-top:12px;">
-  <a class="btn" href="/site-surveys/{{ survey_id }}/measurements">Back to Measurements</a>
-  <a class="btn" href="/site-surveys/{{ survey_id }}">Back to Survey</a>
+<div class="actions" style="margin-top:20px;">
+  <a class="btn" href="/site-surveys/{{ survey.id }}/measurements">Back to Measurements</a>
+  <a class="btn" href="/site-surveys/{{ survey.id }}">Back to Survey</a>
 </div>
 
 <style>
-.kv{display:grid;grid-template-columns:240px 1fr;gap:8px;padding:6px;border-bottom:1px dashed #e6e8eb}
+.summary-card{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap}
+.kv{display:grid;grid-template-columns:200px 1fr;gap:8px;padding:6px 0;border-bottom:1px dashed #e2e8f0}
 .k{color:#475569}
-.card{background:#fff;border:1px solid #e6e8eb;border-radius:12px;padding:12px}
-.grid{display:grid;gap:12px}
+.grid{display:grid;gap:16px}
 .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
 .note{color:#475569;font-size:12px}
-.pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #e6e8eb;background:#f8fafc}
-.chip{display:inline-block;margin:4px 6px 0 0;border:1px solid #e6e8eb;border-radius:999px;padding:4px 10px;font-weight:600;background:#f8fafc}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #e2e8f0;background:#f8fafc}
+.chip{display:inline-block;margin:4px 6px 0 0;border:1px solid #e2e8f0;border-radius:999px;padding:4px 10px;font-weight:600;background:#f8fafc}
 .good{background:rgba(34,197,94,.12);border-color:#86efac;color:#065f46}
 .warn{background:rgba(245,158,11,.14);border-color:#fcd34d;color:#92400e}
 .poor{background:rgba(239,68,68,.12);border-color:#fca5a5;color:#7f1d1d}
-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e6e8eb;border-radius:10px;overflow:hidden;margin-top:8px}
-th,td{padding:8px 10px;border-bottom:1px solid #e6e8eb;text-align:left}
-th{background:#f1f5ff;color:#1e293b;font-weight:600}
-.btn{display:inline-block;padding:8px 12px;border-radius:8px;border:1px solid #d0d7de;background:#fff}
-.btn.primary{background:#0b5fff;color:#fff;border-color:#0b5fff}
-.muted{color:#6b7280}
+.compact-table{margin-top:10px}
+.compact-table th,.compact-table td{padding:8px 10px}
+.upload-form{display:grid;gap:8px;margin-bottom:12px}
+.thumb-grid{margin-top:8px;display:flex;gap:10px;flex-wrap:wrap}
+.thumb-card{display:flex;flex-direction:column;align-items:center;gap:6px}
+.thumb-img{height:110px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;object-fit:cover}
+.inline-form{margin:0}
+@media (max-width:960px){.g2{grid-template-columns:1fr}}
 </style>
 {% endblock %}
+
+

@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Measurement Report {{ survey.name }} - {{ measurement.title }} - {{ survey.code or '' }}</title>
+  <style>
+    :root {
+      --text: #1f2328;
+      --muted: #475569;
+      --border: #d0d7de;
+      --accent: #0f172a;
+      --good: #0f5132;
+      --warn: #8a4b0f;
+      --poor: #842029;
+    }
+    @page {
+      margin: 20mm;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 12px;
+      color: var(--text);
+      background: #fff;
+    }
+    header, footer {
+      width: 100%;
+      margin-bottom: 12px;
+    }
+    main {
+      width: 100%;
+    }
+    h1 { font-size: 24px; margin: 0 0 8px 0; }
+    h2 { font-size: 18px; margin: 28px 0 12px 0; }
+    h3 { font-size: 15px; margin: 18px 0 8px 0; }
+    p { margin: 0 0 6px 0; }
+    .muted { color: var(--muted); }
+    .section { page-break-inside: avoid; margin-bottom: 24px; }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 16px;
+      border: 1px solid var(--border);
+      padding: 12px;
+      border-radius: 8px;
+    }
+    .summary-grid div { display: flex; justify-content: space-between; }
+    .summary-grid span.label { font-weight: 600; }
+    .metric-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .metric-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .metric-card .label { font-weight: 600; margin-bottom: 4px; }
+    .metric-card .value { font-size: 20px; font-weight: 600; }
+    .metric-card.status-good { border-color: #a3e4c9; }
+    .metric-card.status-warn { border-color: #fcd34d; }
+    .metric-card.status-poor { border-color: #fca5a5; }
+    .metric-card.status-good .status { color: var(--good); }
+    .metric-card.status-warn .status { color: var(--warn); }
+    .metric-card.status-poor .status { color: var(--poor); }
+    .detail-table {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+    .detail-table th,
+    .detail-table td {
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      padding: 6px 10px;
+      vertical-align: top;
+    }
+    .detail-table th { width: 220px; font-weight: 600; }
+    .detail-table tr:last-child td,
+    .detail-table tr:last-child th { border-bottom: none; }
+    table.dataset {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid var(--border);
+      margin-top: 10px;
+      font-size: 11px;
+    }
+    table.dataset th,
+    table.dataset td {
+      border-bottom: 1px solid var(--border);
+      padding: 6px 8px;
+      text-align: left;
+    }
+    table.dataset th { background: #f8fafc; }
+    .attachments ul { margin: 0; padding-left: 18px; }
+    .media-primary {
+      margin-top: 12px;
+      text-align: center;
+    }
+    .media-primary img {
+      max-width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .media-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .media-gallery figure {
+      margin: 0;
+      border: 1px solid var(--border);
+      padding: 6px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .media-gallery img { max-width: 100%; border-radius: 6px; }
+    .checklist-section { page-break-inside: avoid; }
+    .checklist-stage { margin-bottom: 14px; }
+    .signature-block {
+      margin-top: 40px;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+    }
+    .signature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 24px;
+    }
+    .signature-line {
+      border-bottom: 1px solid var(--border);
+      margin-top: 32px;
+      padding-bottom: 4px;
+    }
+    footer {
+      margin-top: 36px;
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+      font-size: 10px;
+      color: var(--muted);
+    }
+    @media print {
+      body { font-size: 11px; }
+      .section { page-break-inside: avoid; }
+      .page-break { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  {% if header_html %}
+    {{ header_html | safe }}
+  {% endif %}
+</header>
+<main>
+  <section class="section">
+    <h1>Site Gravity Measurement Report</h1>
+    <p class="muted">Generated {{ generated_at }}</p>
+    <div class="summary-grid" style="margin-top:12px;">
+      {% for label, value in summary_items %}
+        {% if value %}
+        <div>
+          <span class="label">{{ label }}</span>
+          <span>{{ value }}</span>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Measurement Quality Summary</h2>
+    <div class="metric-cards">
+      {% for metric in metrics %}
+        <div class="metric-card status-{{ metric.status }}">
+          <div class="label">{{ metric.label }}</div>
+          <div class="value">
+            {% if metric.value is not none %}
+              {% if metric.label in ['Project Set Scatter (Measurement Precision)','Set Scatter (overall)'] %}
+                &PlusMinus;
+              {% endif %}
+              {{ '%.3f' % metric.value }}{% if metric.unit %} {{ metric.unit }}{% endif %}
+            {% else %}
+              &mdash;
+            {% endif %}
+          </div>
+          {% if metric.status in ['good','warn','poor'] %}
+            <div class="status">{{ metric.status|upper }}</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Survey Overview</h2>
+    <table class="detail-table">
+      {% for label, value in site_details %}
+        {% if value and value != '-' %}
+        <tr>
+          <th>{{ label }}</th>
+          <td>{{ value }}</td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+    </table>
+  </section>
+
+  <section class="section">
+    <h2>Totals &amp; Acquisition Details</h2>
+    <table class="detail-table">
+      {% for label, value in totals_details %}
+        {% if value and value != '-' %}
+        <tr><th>{{ label }}</th><td>{{ value }}</td></tr>
+        {% endif %}
+      {% endfor %}
+    </table>
+  </section>
+
+  {% if set_rows %}
+  <section class="section page-break">
+    <h2>Per-Set Results</h2>
+    <table class="dataset">
+      <thead>
+        <tr>
+          <th>Set #</th>
+          <th>Set Scatter (&micro;Gal)</th>
+          <th>Set Sigma</th>
+          <th>Drop RMS</th>
+          <th>Acceptance %</th>
+          <th>Drops</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in set_rows %}
+        <tr>
+          <td>{{ row.id }}</td>
+          <td>{{ row.set_scatter if row.set_scatter is not none else '&mdash;' }}</td>
+          <td>{{ row.set_sigma if row.set_sigma is not none else '&mdash;' }}</td>
+          <td>{{ row.drop_rms if row.drop_rms is not none else '&mdash;' }}</td>
+          <td>{{ row.drop_acc_ratio if row.drop_acc_ratio is not none else '&mdash;' }}</td>
+          <td>{{ row.drop_accept|int if row.drop_accept is not none else '&mdash;' }}A / {{ row.drop_reject|int if row.drop_reject is not none else '&mdash;' }}R</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+  <section class="section">
+    <h2>Attachments</h2>
+    {% if attachments %}
+    <div class="attachments">
+      <ul>
+        {% for att in attachments %}
+          <li>
+            <strong>{{ att.label }}:</strong>
+            <a href="{{ att.download_url }}" download="{{ att.filename }}">{{ att.filename }}</a>
+            {% if att.note %}<span class="muted">({{ att.note }})</span>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% else %}
+      <p class="muted">No supporting files recorded.</p>
+    {% endif %}
+  </section>
+
+  {% if primary_image %}
+  <section class="section">
+    <h2>Site Images</h2>
+    <div class="media-primary">
+      <img src="{{ primary_image.data_url }}" alt="{{ primary_image.filename }}">
+      <p class="muted">{{ primary_image.caption or primary_image.filename }}</p>
+    </div>
+    {% if gallery_images %}
+    <div class="media-gallery">
+      {% for img in gallery_images %}
+      <figure>
+        <img src="{{ img.data_url }}" alt="{{ img.filename }}">
+        <figcaption>{{ img.caption or img.filename }}</figcaption>
+      </figure>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if graph_images or graph_docs %}
+  <section class="section">
+    <h2>g9 Graphs</h2>
+    {% if graph_images %}
+    <div class="media-gallery">
+      {% for gr in graph_images %}
+      <figure>
+        <img src="{{ gr.data_url }}" alt="{{ gr.filename }}">
+        <figcaption>{{ gr.note or gr.filename }}</figcaption>
+      </figure>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if graph_docs %}
+    <div class="attachments" style="margin-top:12px;">
+      <ul>
+        {% for doc in graph_docs %}
+        <li><strong>Graph Document:</strong> <a href="{{ doc.data_url }}" download="{{ doc.filename }}">{{ doc.filename }}</a> {% if doc.note %}<span class="muted">({{ doc.note }})</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if checklist_stages %}
+  <section class="section page-break checklists">
+    <h2>Checklist Summary</h2>
+    {% for stage in checklist_stages %}
+      <div class="checklist-stage">
+        <h3>{{ stage.title }}</h3>
+        <table class="dataset">
+          <thead>
+            <tr>
+              <th>Step</th>
+              <th>Instruction</th>
+              <th>Recorded Value</th>
+              <th>Expected</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in stage.entries %}
+            <tr>
+              <td>{{ row.step }}</td>
+              <td>{{ row.action }}</td>
+              <td>{{ row.value }}</td>
+              <td>{{ row.expected }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <section class="section signature-block">
+    <h2>Sign-off</h2>
+    <div class="signature-grid">
+      <div>
+        <div class="signature-line"></div>
+        <p class="muted">Reviewed by</p>
+      </div>
+      <div>
+        <div class="signature-line"></div>
+        <p class="muted">Date</p>
+      </div>
+    </div>
+  </section>
+</main>
+<footer>
+  {% if footer_html %}
+    {{ footer_html | safe }}
+  {% else %}
+    <p class="muted">Generated by Site Survey Manager - {{ generated_at }}</p>
+  {% endif %}
+</footer>
+</body>
+</html>
