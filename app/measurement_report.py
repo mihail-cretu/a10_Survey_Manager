@@ -184,7 +184,7 @@ def _format_threshold_tooltip(value: Optional[float], thresholds: Dict[str, floa
 
     return " • ".join(parts)
 
-def _metric(name: str, label: str, unit: str = "µGal") -> Dict[str, Any]:
+def _metric(qm, name: str, label: str, unit: str = "µGal") -> Dict[str, Any]:
     value = _parse_float(qm.get(name))
     threshold_map = {
         "project_set_scatter": THR.get("pss", {}),
@@ -256,9 +256,9 @@ def render_report(request: Request, survey_id: int, measurement_id: int):
     qm =   project_meta.get("qm", {})   if project_meta else {}
 
     metrics = [
-        _metric("project_set_scatter", "Project Standard Deviation (Precision)"),
-        _metric("total_uncertainty", "Total Measurement Uncertainty"),
-        _metric("set_scatter_overall", "Set Standard Deviation (Set Scatter)"),
+        _metric(qm, "project_set_scatter", "Project Standard Deviation (Precision)"),
+        _metric(qm, "total_uncertainty", "Total Measurement Uncertainty"),
+        _metric(qm, "set_scatter_overall", "Set Standard Deviation (Set Scatter)"),
         # _metric("uncertainty_per_set", "Uncertainty / Set"),
     ]
     gravity_value = site.get("Gravity (µGal)") or site.get("Gravity (?Gal)") or site.get("Gravity (uGal)")

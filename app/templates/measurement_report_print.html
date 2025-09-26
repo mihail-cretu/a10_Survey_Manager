@@ -303,12 +303,12 @@
             {% endif %}
           </div>
           {% if metric.status in ['good','warn','poor','bad','unusable'] %}
-            <div class="status">
-              <span>{{ metric.status|upper }}</span>
-              {% if metric.value is not none and metric.value != 0 %}
+            {% if metric.value is not none and metric.value != 0 %}
+              <div class="status">
+                <span>{{ metric.status|upper }}</span>
                 <span class="quality-indicator quality-{{ metric.status }}" aria-hidden="true"{% if metric.tooltip %} title="{{ metric.tooltip }}"{% endif %}></span>
-              {% endif %}
-            </div>
+              </div>
+            {% endif %}
           {% endif %}
         </div>
       {% endfor %}
