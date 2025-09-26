@@ -16,6 +16,54 @@
   {{ super() }}
 {% endblock %}
 {% block content %}
+<style>
+  .metric-indicator {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .metric-cell {
+    text-align: right;
+  }
+  .quality-indicator {
+    display: inline-flex;
+    width: 60px;
+    height: 8px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: repeating-linear-gradient(
+      to right,
+      rgba(15, 23, 42, 0.15),
+      rgba(15, 23, 42, 0.15) 10px,
+      transparent 10px,
+      transparent 12px
+    );
+    position: relative;
+  }
+  .quality-indicator::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+  .quality-indicator.quality-good::after {
+    background: linear-gradient(to right, #15803d 0%, #22c55e 100%);
+  }
+  .quality-indicator.quality-warn::after {
+    background: linear-gradient(to right, #b45309 0%, #f97316 50%, rgba(249, 115, 22, 0.35) 50%);
+  }
+  .quality-indicator.quality-poor::after {
+    background: linear-gradient(to right, #b91c1c 0%, #ef4444 45%, rgba(239, 68, 68, 0.35) 45%);
+  }
+  .quality-indicator.quality-bad::after {
+    background: linear-gradient(to right, #7f1d1d 0%, #dc2626 60%, rgba(220, 38, 38, 0.35) 60%);
+  }
+  .quality-indicator.quality-unusable::after {
+    background: linear-gradient(to right, #0f172a 0%, #1e293b 100%);
+  }
+</style>
 <h1>Measurements</h1>
 <p class="muted">Survey {{ survey.name }} ({{ survey.code or '-' }}) - Status {{ survey.status }}</p>
 
@@ -48,16 +96,39 @@
         <td class="mono">{{ m.id }}</td>
         <td><a href="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}">{{ m.title }}</a></td>
         <td class="muted mono">{{ m["keys"]["File Created"] }}</td>
-        <td>{{ m.pss if m.pss is not none else "-" }}</td>
-        <td>{{ (m.pss / 10 * 3.086) | round(1) if m.pss is not none else "-" }}</td>
-        <td>{{ m.ssov if m.ssov is not none else "-" }}</td>
+        <td class="metric-cell">
+          {% if m.pss is not none %}
+            <span class="metric-indicator">
+              <span>{{ '%.2f' % m.pss }}</span>
+              {% if m.pss_status and m.pss != 0 %}
+                <span class="quality-indicator quality-{{ m.pss_status }}" aria-hidden="true"{% if m.pss_tooltip %} title="{{ m.pss_tooltip }}"{% endif %}></span>
+              {% endif %}
+            </span>
+          {% else %}-{% endif %}
+        </td>
+        <td class="metric-cell">{{ (m.pss / 10 * 3.086) | round(1) if m.pss is not none else "-" }}</td>
+        <td class="metric-cell">
+          {% if m.ssov is not none %}
+            <span class="metric-indicator">
+              <span>{{ '%.2f' % m.ssov }}</span>
+              {% if m.ssov_status and m.ssov != 0 %}
+                <span class="quality-indicator quality-{{ m.ssov_status }}" aria-hidden="true"{% if m.ssov_tooltip %} title="{{ m.ssov_tooltip }}"{% endif %}></span>
+              {% endif %}
+            </span>
+          {% else %}-{% endif %}
+        </td>
         <td>{{ m.gravity if m.gravity else "-" }}</td>
         <td>{{ m.sets_at_drops }}</td>
         <td>{{ m.drops_accepted | int() if m.drops_accepted is not none else "-" }}</td>
         <td>{{ m.drops_rejected | int() if m.drops_rejected is not none else "-" }}</td>
-        <td>
+        <td class="metric-cell">
           {% if m.accepted_pct is not none %}
-            {{ m.accepted_pct }}%
+            <span class="metric-indicator">
+              <span>{{ '%.1f' % m.accepted_pct }}%</span>
+              {% if m.accepted_status and m.accepted_pct != 0 %}
+                <span class="quality-indicator quality-{{ m.accepted_status }}" aria-hidden="true"{% if m.accepted_tooltip %} title="{{ m.accepted_tooltip }}"{% endif %}></span>
+              {% endif %}
+            </span>
           {% else %}-{% endif %}
         </td>
       </tr>

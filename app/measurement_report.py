@@ -7,6 +7,8 @@ import sqlite3, base64, json, datetime
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 
+from config import THR, THR_desc, STATUS_LADDER
+
 APP_ROOT = Path(__file__).parent
 DATA_DIR = APP_ROOT / "data"
 DB_PATH = DATA_DIR / "surveys.db"
@@ -20,14 +22,10 @@ router = APIRouter(
 )
 
 
-
-
-
 def _load_embed_asset(path: Path) -> str:
     if not path.exists() or not path.is_file():
         return ""
     return path.read_text(encoding="utf-8")
-
 
 def _data_uri(content: Optional[bytes], mime: Optional[str]) -> str:
     if not content or not mime:
@@ -35,21 +33,10 @@ def _data_uri(content: Optional[bytes], mime: Optional[str]) -> str:
     encoded = base64.b64encode(content).decode("ascii")
     return f"data:{mime};base64,{encoded}"
 
-
 def _text_data_uri(text: Optional[str]) -> str:
     data = (text or "").encode("utf-8")
     encoded = base64.b64encode(data).decode("ascii")
     return f"data:text/plain;base64,{encoded}"
-
-# ---- Static THR (validation parameters)
-THR = {
-    "pss": {"g":  1.5, "w":  2.0, "p":  5.0}, # Project Set Scatter (µGal)
-    "tu":  {"g": 11.0, "w": 12.0, "p": 13.0}, # Total Uncertainty (µGal)
-    "ups": {"g": 15.0, "w": 20.0, "p": 65.0}, # Uncertainty / Set (µGal)
-    "ss":  {"g": 50.0, "w": 60.0, "p": 70.0}, # Set Scatter (µGal)
-    "ssov":{"g":  5.0, "w":  7.0, "p": 10.0}, # Set Scatter overall (µGal)
-    "acc": {"g": 95.0, "w": 85.0, "p": 75.0}, # Acceptance (%)
-}
 
 def _db():
     con = sqlite3.connect(DB_PATH)
@@ -128,8 +115,100 @@ def _collect_checklist_answers(survey_id: int) -> List[Dict[str, Any]]:
     out.sort(key=_key)
     return out
 
+def _parse_float(value: Any) -> Optional[float]:
+    import re
+    if value is None:
+        return None
+    text = str(value).replace(",", ".")
+    match = re.search(r"-?\d+(?:\.\d+)?", text)
+    return float(match.group(0)) if match else None
+
+def _classify_threshold(value: Optional[float], thresholds: Dict[str, float], higher_is_better: bool = False) -> Optional[str]:
+    if value is None or not thresholds:
+        return None
+
+    if higher_is_better:
+        for key, label in STATUS_LADDER:
+            limit = thresholds.get(key)
+            if limit is None:
+                continue
+            if value >= limit:
+                return label
+        lower_bound = thresholds.get("u")
+        if lower_bound is not None and value < lower_bound:
+            return "unusable"
+        if thresholds.get("b") is not None:
+            return "bad"
+        if thresholds.get("p") is not None:
+            return "poor"
+        return "warn"
+
+    for key, label in STATUS_LADDER:
+        limit = thresholds.get(key)
+        if limit is None:
+            continue
+        if value <= limit:
+            return label
+    upper_bound = thresholds.get("u")
+    if upper_bound is not None and value > upper_bound:
+        return "unusable"
+    if thresholds.get("b") is not None:
+        return "bad"
+    if thresholds.get("p") is not None:
+        return "poor"
+    return "warn"
+
+def _format_threshold_tooltip(value: Optional[float], thresholds: Dict[str, float], unit: str = "", higher_is_better: bool = False) -> str:
+    if not thresholds:
+        return ""
+
+    def fmt(val: Optional[float]) -> Optional[str]:
+        if val is None:
+            return None
+        return f"{val:.2f}{(' ' + unit) if unit else ''}"
+
+    parts = []
+    comparator = "≥" if higher_is_better else "≤"
+    for key, _ in STATUS_LADDER:
+        limit = thresholds.get(key)
+        if limit is None:
+            continue
+        label = THR_desc.get(key, key.upper())
+        parts.append(f"{label} {comparator} {fmt(limit)}")
+
+    unusable_limit = thresholds.get("u")
+    if unusable_limit is not None:
+        unusable_label = THR_desc.get("u", "UNUSABLE")
+        unusable_comparator = "<" if higher_is_better else ">"
+        parts.append(f"{unusable_label} {unusable_comparator} {fmt(unusable_limit)}")
+
+    return " • ".join(parts)
+
+def _metric(name: str, label: str, unit: str = "µGal") -> Dict[str, Any]:
+    value = _parse_float(qm.get(name))
+    threshold_map = {
+        "project_set_scatter": THR.get("pss", {}),
+        "total_uncertainty":   THR.get("tu", {}),
+        "set_scatter_overall": THR.get("ssov", {}),
+        "uncertainty_per_set": THR.get("ups", {}),
+    }
+    thresholds = threshold_map.get(name, {})
+    status = _classify_threshold(value, thresholds, higher_is_better=False) if value is not None else "unknown"
+    return {
+        "label": label,
+        "value": value,
+        "unit": unit if value is not None else "",
+        "status": status,
+        "thresholds": thresholds,
+        "tooltip": _format_threshold_tooltip(value, thresholds, unit=unit, higher_is_better=False),
+    }
+
+
+
+# ---- Report endpoint
 @router.get("")
 def render_report(request: Request, survey_id: int, measurement_id: int):
+
     static_report_dir = APP_ROOT / "static" / "report"
     header_html = _load_embed_asset(static_report_dir / "header.html")
     footer_html = _load_embed_asset(static_report_dir / "footer.html")
@@ -164,63 +243,33 @@ def render_report(request: Request, survey_id: int, measurement_id: int):
             "SELECT filename, mime_type, note, imported_at, graph_blob FROM measurement_graphs WHERE measurement_id=? ORDER BY id ASC",
             (measurement_id,),
         ).fetchall()
+        site_file_rows = con.execute(
+            "SELECT filename, mime_type, note, imported_at, file_blob FROM site_files WHERE measurement_id=? ORDER BY id ASC",
+            (measurement_id,),
+        ).fetchall()
 
     project_meta = _load_json(project_row["meta_json"]) if project_row else {}
     set_meta = _load_json(set_row["meta_json"]) if set_row else {}
 
     site = project_meta.get("site", {}) if project_meta else {}
     keys = project_meta.get("keys", {}) if project_meta else {}
-    qm = project_meta.get("qm", {}) if project_meta else {}
-
-    def _parse_float(value: Any) -> Optional[float]:
-        import re
-        if value is None:
-            return None
-        text = str(value).replace(",", ".")
-        match = re.search(r"-?\d+(?:\.\d+)?", text)
-        return float(match.group(0)) if match else None
-
-    def _metric(name: str, label: str, unit: str = "µGal") -> Dict[str, Any]:
-        value = _parse_float(qm.get(name))
-        threshold_map = {
-            "project_set_scatter": THR.get("pss", {}),
-            "total_uncertainty":   THR.get("tu", {}),
-            "set_scatter_overall": THR.get("ssov", {}),
-            "uncertainty_per_set": THR.get("ups", {}),
-        }
-        thresholds = threshold_map.get(name, {})
-        status = "unknown"
-        if value is not None and thresholds:
-            good = thresholds.get("g")
-            warn = thresholds.get("w")
-            if good is not None and value <= good:
-                status = "good"
-            elif warn is not None and value <= warn:
-                status = "warn"
-            else:
-                status = "poor"
-        return {
-            "label": label,
-            "value": value,
-            "unit": unit if value is not None else "",
-            "status": status,
-            "thresholds": thresholds,
-        }
+    qm =   project_meta.get("qm", {})   if project_meta else {}
 
     metrics = [
-        _metric("project_set_scatter", "Project Set Scatter (Measurement Precision)"),
-        _metric("total_uncertainty", "Total Uncertainty"),
-        _metric("set_scatter_overall", "Set Scatter (overall)"),
+        _metric("project_set_scatter", "Project Standard Deviation (Precision)"),
+        _metric("total_uncertainty", "Total Measurement Uncertainty"),
+        _metric("set_scatter_overall", "Set Standard Deviation (Set Scatter)"),
         # _metric("uncertainty_per_set", "Uncertainty / Set"),
     ]
     gravity_value = site.get("Gravity (µGal)") or site.get("Gravity (?Gal)") or site.get("Gravity (uGal)")
 
     metrics.append({
-        "label": "Gravity",
+        "label": "Final Determined Gravity",
         "value": _parse_float(gravity_value),
         "unit": "µGal",
         "status": "info",
         "thresholds": {},
+        "tooltip": "",
     })
 
     summary_items = [
@@ -253,6 +302,7 @@ def render_report(request: Request, survey_id: int, measurement_id: int):
     ]
     site_details = [(label, site.get(key) or site.get(key.replace("?", "u")) or "-" ) for label, key in site_fields]
 
+
     key_fields = [
         ("Number of Sets", "Number of Sets"),
         ("Number of Drops", "Number of Drops"),
@@ -269,6 +319,8 @@ def render_report(request: Request, survey_id: int, measurement_id: int):
 
     set_rows = set_meta.get("rows", []) if set_meta else []
 
+
+    #region images 
     image_entries = []
     for row in image_rows:
         data_url = _data_uri(row["image_blob"], row["mime_type"])
@@ -282,7 +334,9 @@ def render_report(request: Request, survey_id: int, measurement_id: int):
         })
     primary_image = image_entries[0] if image_entries else None
     gallery_images = image_entries[1:] if len(image_entries) > 1 else []
+    # endregion
 
+    #region graphs 
     graph_images = []
     graph_docs = []
     for row in graph_rows:
@@ -303,7 +357,9 @@ def render_report(request: Request, survey_id: int, measurement_id: int):
                     "note": row["note"] or "",
                     "imported_at": row["imported_at"],
                 })
+    #endregion
 
+    #region attachments
     project_attachment = None
     if project_row:
         project_attachment = {
@@ -321,9 +377,26 @@ def render_report(request: Request, survey_id: int, measurement_id: int):
             "download_url": _text_data_uri(set_row["raw_text"]),
             "imported_at": set_row["imported_at"],
         }
+    #endregion
 
-    attachments = [a for a in [project_attachment, set_attachment] if a]
+    #region site files
+    site_file_attachments = []
+    for row in site_file_rows:
+        data_url = _data_uri(row["file_blob"], row["mime_type"] or "application/octet-stream")
+        if not data_url:
+            continue
+        site_file_attachments.append({
+            "label": "Site File",
+            "filename": row["filename"],
+            "download_url": data_url,
+            "note": row["note"] or "",
+            "imported_at": row["imported_at"],
+        })
 
+    attachments = [a for a in [project_attachment, set_attachment] if a] + site_file_attachments
+    #endregion
+
+    #region checklist
     checklist_rows = _collect_checklist_answers(survey_id)
     stages = []
     from collections import OrderedDict
@@ -335,7 +408,9 @@ def render_report(request: Request, survey_id: int, measurement_id: int):
             "title": title,
             "entries": items,
         })
+    #endregion
 
+    # Final rendering
     context = {
         "request": request,
         "generated_at": _now_iso(),

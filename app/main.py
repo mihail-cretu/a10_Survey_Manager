@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Form, HTTPException
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from starlette.status import HTTP_302_FOUND
@@ -10,6 +10,8 @@ from datetime import datetime
 from preflight_checklist import router as preflight_router
 from measurement import router as measurement_router
 from measurement_report import router as measurement_report_router
+
+from config import STATUS_CHOICES
 
 from db import SCHEMA_SQL
 
@@ -27,7 +29,13 @@ templates = Jinja2Templates(directory=str(APP_ROOT / "templates"))
 if (APP_ROOT / "static").exists():
     app.mount("/static", StaticFiles(directory=str(APP_ROOT / "static")), name="static")
 
-STATUS_CHOICES = ["new", "preflight", "measurements", "completed"]
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    path = APP_ROOT / "static" / "favicon.ico.png"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="favicon not found")
+    return FileResponse(path)
 
 if not DB_PATH.exists():
     with sqlite3.connect(DB_PATH) as conn:
@@ -153,6 +161,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
+        port=8008,
         reload=True
     )

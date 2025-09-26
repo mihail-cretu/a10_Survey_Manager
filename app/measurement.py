@@ -9,7 +9,7 @@ from fastapi import APIRouter, Request, UploadFile, File, Form, HTTPException, s
 from fastapi.responses import RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
-from fastapi.templating import Jinja2Templates
+from config import THR, THR_desc, PREFERRED_ENCODINGS, KV_RE
 
 # ---- Paths (aligned with your project layout)
 APP_ROOT = Path(__file__).parent
@@ -24,16 +24,6 @@ router = APIRouter(
     tags=["Measurements"],
 )
 
-# ---- Static THR (validation parameters)
-THR = {
-    "pss": {"g":  1.5, "w":  2.0, "p":  5.0}, # Project Set Scatter (µGal)
-    "tu":  {"g": 11.0, "w": 12.0, "p": 13.0}, # Total Uncertainty (µGal)
-    "ups": {"g": 15.0, "w": 20.0, "p": 65.0}, # Uncertainty / Set (µGal)
-    "ss":  {"g": 50.0, "w": 60.0, "p": 70.0}, # Set Scatter (µGal)
-    "ssov":{"g":  5.0, "w":  7.0, "p": 10.0}, # Set Scatter overall (µGal)
-    "acc": {"g": 95.0, "w": 85.0, "p": 75.0}, # Acceptance (%)
-}
-
 # ---- DB helpers
 def _db():
     con = sqlite3.connect(DB_PATH)
@@ -45,6 +35,14 @@ def _now():
 
 def _sha256_hex(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
+
+def _decode_text(data: bytes) -> str:
+    for encoding in PREFERRED_ENCODINGS:
+        try:
+            return data.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return data.decode("utf-8", errors="replace")
 
 def init_measurement_tables():
     with _db() as con:
@@ -110,13 +108,27 @@ def init_measurement_tables():
           graph_blob BLOB NOT NULL,
           FOREIGN KEY(measurement_id) REFERENCES measurements(id) ON DELETE CASCADE
         )""")
+        # site files (general attachments)
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS site_files (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          measurement_id INTEGER NOT NULL,
+          filename TEXT NOT NULL,
+          mime_type TEXT,
+          size_bytes INTEGER,
+          sha256_hex TEXT,
+          note TEXT,
+          imported_at TEXT NOT NULL,
+          file_blob BLOB NOT NULL,
+          FOREIGN KEY(measurement_id) REFERENCES measurements(id) ON DELETE CASCADE
+        )""")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_site_files_measurement ON site_files(measurement_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_site_files_sha256 ON site_files(sha256_hex)")
         con.commit()
 
 # init_measurement_tables()
 
 # ---- Parsing (tolerant)
-
-KV_RE = re.compile(r"^\s*([^:]{1,128})\s*:\s*(.+?)\s*$")
 
 def parse_project_text(text: str) -> Dict[str, Any]:
     """
@@ -134,11 +146,17 @@ def parse_project_text(text: str) -> Dict[str, Any]:
         if m:
             k = m.group(1).strip()
             v = m.group(2).strip()
-            keys[k] = v
+            if k not in keys:
+                keys[k] = v
 
-    def latlon_split(t:str):
+    def latlon_split(text: Optional[str]):
+        if not text:
+            return "", "", ""
         pattern = r"^([\d.+-]+)\s+Long:\s+([\d.+-]+)\s+Elev:\s+([\d.+-]+)"
-        lat, lon, elev = re.search(pattern, t).groups()
+        match = re.search(pattern, text)
+        if not match:
+            return text, "", ""
+        lat, lon, elev = match.groups()
         return lat, lon, elev
 
     def pick(*names):
@@ -152,8 +170,6 @@ def parse_project_text(text: str) -> Dict[str, Any]:
         t = str(s).replace(",", ".")
         m = re.search(r"-?\d+(?:\.\d+)?", t)
         return float(m.group(0)) if m else None
-
-    print(keys)
 
     lat, lon, elev = latlon_split(pick("Latitude (dd,+N)", "Lat", "Latitude"))
 
@@ -229,7 +245,8 @@ def parse_sets_text(text: str) -> Dict[str, Any]:
     }
 
     def nfloat(s: Optional[str]) -> Optional[float]:
-        if s is None: return None
+        if s is None:
+            return None
         t = str(s).replace(",", ".")
         m = re.search(r"-?\d+(?:\.\d+)?", t)
         return float(m.group(0)) if m else None
@@ -238,15 +255,25 @@ def parse_sets_text(text: str) -> Dict[str, Any]:
     for ln in lines[hdr_idx+1:]:
         cols = [c.strip() for c in ln.split(sep)]
         if len(cols) < 2: continue
-        def get(i): return cols[i] if 0 <= i < len(cols) else ""
+        def get(i):
+            if i is None or i < 0:
+                return ""
+            return cols[i] if 0 <= i < len(cols) else ""
+        acc_val = nfloat(get(idx["acc"]))
+        rej_val = nfloat(get(idx["rej"]))
+        ratio = None
+        if acc_val is not None and rej_val is not None:
+            total = acc_val + rej_val
+            if total > 0:
+                ratio = round((acc_val * 100.0) / total, 1)
         rows.append({
             "id": get(idx["set"]) or str(len(rows)+1),
             "set_scatter": nfloat(get(idx["scatter"])),
             "set_sigma": nfloat(get(idx["sigma"])),
             "drop_rms": nfloat(get(idx["rms"])),
-            "drop_accept": nfloat(get(idx["acc"])),
-            "drop_reject": nfloat(get(idx["rej"])),
-            "drop_acc_ratio": round(nfloat(get(idx["acc"])) * 100 / (nfloat(get(idx["acc"])) + nfloat(get(idx["rej"]))),1),
+            "drop_accept": acc_val,
+            "drop_reject": rej_val,
+            "drop_acc_ratio": ratio,
         })
     return {"rows": rows}
 
@@ -308,6 +335,75 @@ def list_measurements(request: Request, survey_id: int):
         f = nfloat(x)
         return int(round(f)) if f is not None else None
 
+    STATUS_LADDER = [
+        ("g", "good"),
+        ("w", "warn"),
+        ("p", "poor"),
+        ("b", "bad"),
+    ]
+
+    def classify_threshold(value: Optional[float], thresholds: Dict[str, float], higher_is_better: bool = False) -> Optional[str]:
+        if value is None or not thresholds:
+            return None
+
+        if higher_is_better:
+            for key, label in STATUS_LADDER:
+                limit = thresholds.get(key)
+                if limit is None:
+                    continue
+                if value >= limit:
+                    return label
+            lower_bound = thresholds.get("u")
+            if lower_bound is not None and value < lower_bound:
+                return "unusable"
+            if thresholds.get("b") is not None:
+                return "bad"
+            if thresholds.get("p") is not None:
+                return "poor"
+            return "warn"
+
+        for key, label in STATUS_LADDER:
+            limit = thresholds.get(key)
+            if limit is None:
+                continue
+            if value <= limit:
+                return label
+        upper_bound = thresholds.get("u")
+        if upper_bound is not None and value > upper_bound:
+            return "unusable"
+        if thresholds.get("b") is not None:
+            return "bad"
+        if thresholds.get("p") is not None:
+            return "poor"
+        return "warn"
+
+    def format_threshold_tooltip(value: Optional[float], thresholds: Dict[str, float], unit: str = "", higher_is_better: bool = False) -> str:
+        if not thresholds:
+            return ""
+
+        def fmt(val: Optional[float], decimals: int = 2) -> Optional[str]:
+            if val is None:
+                return None
+            text = f"{val:.{decimals}f}"
+            return f"{text}{(' ' + unit) if unit else ''}"
+
+        parts = []
+        comparator = "≥" if higher_is_better else "≤"
+        for key, _ in STATUS_LADDER:
+            limit = thresholds.get(key)
+            if limit is None:
+                continue
+            label = THR_desc.get(key, key.upper())
+            parts.append(f"{label} {comparator} {fmt(limit)}")
+
+        unusable_limit = thresholds.get("u")
+        if unusable_limit is not None:
+            unusable_label = THR_desc.get("u", "UNUSABLE")
+            unusable_comparator = "<" if higher_is_better else ">"
+            parts.append(f"{unusable_label} {unusable_comparator} {fmt(unusable_limit)}")
+
+        return " • ".join(parts)
+
     items = []
     for r in rows:
         pm = safe_load(r["project_meta"])
@@ -338,7 +434,11 @@ def list_measurements(request: Request, survey_id: int):
                 "created_at": r["created_at"],
                 "keys": keys,
                 "pss": pss,
+                "pss_status": classify_threshold(pss, THR.get("pss", {})),
+                "pss_tooltip": format_threshold_tooltip(pss, THR.get("pss", {}), unit="µGal"),
                 "ssov": ssov,
+                "ssov_status": classify_threshold(ssov, THR.get("ssov", {})),
+                "ssov_tooltip": format_threshold_tooltip(ssov, THR.get("ssov", {}), unit="µGal"),
                 "gravity": gravity,
                 "sets_at_drops": f"{sets_total}@{drops_total}" if (sets_total is not None and drops_total is not None) else "-",
                 "sets_processed": sets_processed or "-",
@@ -346,6 +446,8 @@ def list_measurements(request: Request, survey_id: int):
                 "drops_accepted": drops_accepted,
                 "drops_rejected": drops_rejected,
                 "accepted_pct": acc_pct,
+                "accepted_status": classify_threshold(acc_pct, THR.get("acc", {}), higher_is_better=True),
+                "accepted_tooltip": format_threshold_tooltip(acc_pct, THR.get("acc", {}), unit="%", higher_is_better=True),
             }
         )
 
@@ -423,6 +525,10 @@ def measurement_detail(request: Request, survey_id: int, measurement_id: int):
         g9s = con.execute("SELECT * FROM measurement_set     WHERE measurement_id=?", (measurement_id,)).fetchone()
         imgs = con.execute("SELECT id, filename FROM measurement_images WHERE measurement_id=? ORDER BY id DESC", (measurement_id,)).fetchall()
         graphs = con.execute("SELECT id, filename, mime_type FROM measurement_graphs WHERE measurement_id=? ORDER BY id DESC", (measurement_id,)).fetchall()
+        site_files = con.execute(
+            "SELECT id, filename, mime_type, size_bytes, note FROM site_files WHERE measurement_id=? ORDER BY id DESC",
+            (measurement_id,),
+        ).fetchall()
 
     qm = None
     if g9p:
@@ -444,6 +550,7 @@ def measurement_detail(request: Request, survey_id: int, measurement_id: int):
             "g9s": g9s,
             "imgs": imgs,
             "graphs": graphs,
+            "site_files": site_files,
             "thr": THR,
             "qm": qm,
         },
@@ -458,7 +565,7 @@ async def upload_project(survey_id: int, measurement_id: int, file: UploadFile =
     if not file.filename.lower().endswith(".project.txt"):
         raise HTTPException(status_code=400, detail="Expected a *.project.txt")
 
-    text = (await file.read()).decode("utf-8", errors="ignore")
+    text = _decode_text(await file.read())
     meta = parse_project_text(text)
     with _db() as con:
         # ensure single row (replace if exists)
@@ -478,7 +585,7 @@ async def upload_set(survey_id: int, measurement_id: int, file: UploadFile = Fil
     if not file.filename.lower().endswith(".set.txt"):
         raise HTTPException(status_code=400, detail="Expected a *.set.txt")
 
-    text = (await file.read()).decode("utf-8", errors="ignore")
+    text = _decode_text(await file.read())
     meta = parse_sets_text(text)
     with _db() as con:
         con.execute("DELETE FROM measurement_set WHERE measurement_id=?", (measurement_id,))
@@ -571,6 +678,42 @@ async def upload_graphs(
         con.commit()
     return RedirectResponse(url=f"/site-surveys/{survey_id}/measurements/{measurement_id}", status_code=303)
 
+
+@router.post("/{measurement_id}/upload/files")
+async def upload_site_files(
+    survey_id: int,
+    measurement_id: int,
+    files: List[UploadFile] = File(...),
+    note: Optional[str] = Form(""),
+):
+    meas = _get_measurement(measurement_id)
+    if not meas or meas["survey_id"] != survey_id:
+        raise HTTPException(status_code=404, detail="Measurement not found")
+
+    with _db() as con:
+        for uf in files:
+            content = await uf.read()
+            if not content:
+                continue
+            con.execute(
+                """
+                INSERT INTO site_files (measurement_id, filename, mime_type, size_bytes, sha256_hex, note, imported_at, file_blob)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    measurement_id,
+                    uf.filename,
+                    uf.content_type,
+                    len(content),
+                    _sha256_hex(content),
+                    note or "",
+                    _now(),
+                    content,
+                ),
+            )
+        con.commit()
+    return RedirectResponse(url=f"/site-surveys/{survey_id}/measurements/{measurement_id}", status_code=303)
+
 # ---- Blob streaming (inline)
 @router.get("/{measurement_id}/image/{image_id}")
 def get_image(survey_id: int, measurement_id: int, image_id: int):
@@ -624,6 +767,41 @@ def get_graph(survey_id: int, measurement_id: int, graph_id: int):
         if not row: raise HTTPException(status_code=404, detail="Graph not found")
     return Response(content=row["graph_blob"], media_type=row["mime_type"] or "application/octet-stream",
                     headers={"Content-Disposition": f'inline; filename="{row["filename"]}"'})
+
+
+@router.get("/{measurement_id}/file/{file_id}")
+def get_site_file(survey_id: int, measurement_id: int, file_id: int):
+    meas = _get_measurement(measurement_id)
+    if not meas or meas["survey_id"] != survey_id:
+        raise HTTPException(status_code=404, detail="Measurement not found")
+    with _db() as con:
+        row = con.execute(
+            "SELECT filename, mime_type, file_blob FROM site_files WHERE id=? AND measurement_id=?",
+            (file_id, measurement_id),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="File not found")
+    return Response(
+        content=row["file_blob"],
+        media_type=row["mime_type"] or "application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{row["filename"]}"'},
+    )
+
+
+@router.post("/{measurement_id}/file/{file_id}/delete")
+def delete_site_file(survey_id: int, measurement_id: int, file_id: int):
+    meas = _get_measurement(measurement_id)
+    if not meas or meas["survey_id"] != survey_id:
+        raise HTTPException(status_code=404, detail="Measurement not found")
+    with _db() as con:
+        cur = con.execute("DELETE FROM site_files WHERE id=? AND measurement_id=?", (file_id, measurement_id))
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="File not found")
+        con.commit()
+    return RedirectResponse(
+        url=f"/site-surveys/{survey_id}/measurements/{measurement_id}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 @router.post("/{measurement_id}/delete")
 def delete_measurement(survey_id: int, measurement_id: int):

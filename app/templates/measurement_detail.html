@@ -1,4 +1,57 @@
 {% extends "base.html" %}
+
+{% macro quality_low(value, bounds) -%}
+  {%- if value is none -%}
+    {%- set cls = '' -%}
+  {%- else -%}
+    {%- set g = bounds.get('g') -%}
+    {%- set w = bounds.get('w') -%}
+    {%- set p = bounds.get('p') -%}
+    {%- set b = bounds.get('b') -%}
+    {%- set u = bounds.get('u') -%}
+    {%- if g is not none and value <= g -%}
+      {%- set cls = 'good' -%}
+    {%- elif w is not none and value <= w -%}
+      {%- set cls = 'warn' -%}
+    {%- elif p is not none and value <= p -%}
+      {%- set cls = 'poor' -%}
+    {%- elif b is not none and value <= b -%}
+      {%- set cls = 'bad' -%}
+    {%- elif u is not none and value > u -%}
+      {%- set cls = 'unusable' -%}
+    {%- else -%}
+      {%- set cls = 'bad' if b is not none else 'poor' -%}
+    {%- endif -%}
+  {%- endif -%}
+  {{- cls -}}
+{%- endmacro %}
+
+{% macro quality_high(value, bounds) -%}
+  {%- if value is none -%}
+    {%- set cls = '' -%}
+  {%- else -%}
+    {%- set g = bounds.get('g') -%}
+    {%- set w = bounds.get('w') -%}
+    {%- set p = bounds.get('p') -%}
+    {%- set b = bounds.get('b') -%}
+    {%- set u = bounds.get('u') -%}
+    {%- if g is not none and value >= g -%}
+      {%- set cls = 'good' -%}
+    {%- elif w is not none and value >= w -%}
+      {%- set cls = 'warn' -%}
+    {%- elif p is not none and value >= p -%}
+      {%- set cls = 'poor' -%}
+    {%- elif b is not none and value >= b -%}
+      {%- set cls = 'bad' -%}
+    {%- elif u is not none and value < u -%}
+      {%- set cls = 'unusable' -%}
+    {%- else -%}
+      {%- set cls = 'bad' if b is not none else 'poor' -%}
+    {%- endif -%}
+  {%- endif -%}
+  {{- cls -}}
+{%- endmacro %}
+
 {% block title %}Measurement - {{ m.title }}{% endblock %}
 {% block header_menu %}
   <a class="btn btn-measure" href="/site-surveys/{{ survey.id }}/measurements">Measurements</a>
@@ -56,10 +109,10 @@
           {% set ups = qm.uncertainty_per_set %}
           {% set tu  = qm.total_uncertainty %}
           {% set ssov= qm.set_scatter_overall %}
-          <span class="chip {% if pss and pss <= thr.pss.g %}good{% elif pss and pss <= thr.pss.w %}warn{% elif pss %}poor{% endif %}">Project Set Scatter: {{ pss if pss is not none else "-" }} uGal</span>
-          <span class="chip {% if ups and ups <= thr.ups.g %}good{% elif ups and ups <= thr.ups.w %}warn{% elif ups %}poor{% endif %}">Uncertainty / Set: {{ ups if ups is not none else "-" }} uGal</span>
-          <span class="chip {% if tu and tu <= thr.tu.g %}good{% elif tu and tu <= thr.tu.w %}warn{% elif tu %}poor{% endif %}">Total Uncertainty: {{ tu if tu is not none else "-" }} uGal</span>
-          <span class="chip {% if ssov and ssov <= thr.ssov.g %}good{% elif ssov and ssov <= thr.ssov.w %}warn{% elif ssov %}poor{% endif %}">Set Scatter (overall): {{ ssov if ssov is not none else "-" }} uGal</span>
+          <span class="chip {{ quality_low(pss, thr.pss) }}">Project Set Scatter: {{ pss if pss is not none else "-" }} uGal</span>
+          <span class="chip {{ quality_low(ups, thr.ups) }}">Uncertainty / Set: {{ ups if ups is not none else "-" }} uGal</span>
+          <span class="chip {{ quality_low(tu, thr.tu) }}">Total Uncertainty: {{ tu if tu is not none else "-" }} uGal</span>
+          <span class="chip {{ quality_low(ssov, thr.ssov) }}">Set Scatter (overall): {{ ssov if ssov is not none else "-" }} uGal</span>
         {% else %}
           <span class="note">No quality metrics parsed.</span>
         {% endif %}
@@ -94,14 +147,16 @@
               <td class="mono">{{ r.id }}</td>
               <td>
                 {% set val = r.set_scatter %}
-                <span class="pill {% if val is not none and val > thr.ss.w %}poor{% elif val is not none and val > thr.ss.g %}warn{% endif %}">
+                {% set val_class = quality_low(val, thr.ss) %}
+                <span class="pill {{ val_class }}">
                   {{ val if val is not none else "-" }}
                 </span>
               </td>
               <td>{{ r.set_sigma if r.set_sigma is not none else "-" }}</td>
               <td>{{ r.drop_rms if r.drop_rms is not none else "-" }}</td>
               <td>
-                <span class="pill {% if ac is not none and ac < thr.acc.p %}poor{% elif ac is not none and ac < thr.acc.w %}warn{% endif %}">
+                {% set ac_class = quality_high(ac, thr.acc) %}
+                <span class="pill {{ ac_class }}">
                   {{ ac if ac is not none else "-" }}%
                 </span>
                 {{ r.drop_accept | int() if r.drop_accept is not none else "-" }}A / {{ r.drop_reject | int() if r.drop_reject is not none else "-" }}R
@@ -175,6 +230,47 @@
       {% endif %}
     </div>
   </div>
+
+  <div class="card">
+    <h3>Site Files</h3>
+    <form method="post" action="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/upload/files" enctype="multipart/form-data" class="upload-form">
+      <input type="file" name="files" multiple required>
+      <input type="text" name="note" placeholder="Note (optional)">
+      <button class="btn btn-measure" type="submit">Upload</button>
+    </form>
+    <div class="file-list">
+      {% if site_files and site_files|length %}
+        <table class="compact-table file-table">
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Type</th>
+              <th>Size</th>
+              <th>Note</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in site_files %}
+            <tr>
+              <td><a href="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/file/{{ f.id }}" target="_blank">{{ f.filename }}</a></td>
+              <td>{{ f.mime_type or '-' }}</td>
+              <td>{% if f.size_bytes is not none %}{{ (f.size_bytes / 1024)|round(1) }} KB{% else %}-{% endif %}</td>
+              <td>{{ f.note or '-' }}</td>
+              <td class="actions">
+                <form class="inline-form" method="post" action="/site-surveys/{{ survey.id }}/measurements/{{ m.id }}/file/{{ f.id }}/delete" onsubmit="return confirm('Delete this file?');">
+                  <button class="btn btn-danger" type="submit">Delete</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="note">No files uploaded.</div>
+      {% endif %}
+    </div>
+  </div>
 </div>
 
 <div class="actions" style="margin-top:20px;">
@@ -195,6 +291,8 @@
 .good{background:rgba(34,197,94,.12);border-color:#86efac;color:#065f46}
 .warn{background:rgba(245,158,11,.14);border-color:#fcd34d;color:#92400e}
 .poor{background:rgba(239,68,68,.12);border-color:#fca5a5;color:#7f1d1d}
+.bad{background:rgba(127,29,29,.15);border-color:#f87171;color:#7f1d1d}
+.unusable{background:rgba(15,23,42,.18);border-color:#1e293b;color:#111827}
 .compact-table{margin-top:10px}
 .compact-table th,.compact-table td{padding:8px 10px}
 .upload-form{display:grid;gap:8px;margin-bottom:12px}
@@ -202,6 +300,9 @@
 .thumb-card{display:flex;flex-direction:column;align-items:center;gap:6px}
 .thumb-img{height:110px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;object-fit:cover}
 .inline-form{margin:0}
+.file-list{overflow-x:auto}
+.file-table th,.file-table td{text-align:left}
+.file-table td.actions{text-align:right}
 @media (max-width:960px){.g2{grid-template-columns:1fr}}
 </style>
 {% endblock %}

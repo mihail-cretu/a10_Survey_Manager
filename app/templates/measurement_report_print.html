@@ -12,6 +12,8 @@
       --good: #0f5132;
       --warn: #8a4b0f;
       --poor: #842029;
+      --bad: #7f1d1d;
+      --unusable: #0f172a;
     }
     @page {
       margin: 20mm;
@@ -64,9 +66,56 @@
     .metric-card.status-good { border-color: #a3e4c9; }
     .metric-card.status-warn { border-color: #fcd34d; }
     .metric-card.status-poor { border-color: #fca5a5; }
+    .metric-card.status-bad { border-color: #f87171; }
+    .metric-card.status-unusable { border-color: #94a3b8; }
+    .metric-card .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
     .metric-card.status-good .status { color: var(--good); }
     .metric-card.status-warn .status { color: var(--warn); }
     .metric-card.status-poor .status { color: var(--poor); }
+    .metric-card.status-bad .status { color: var(--bad); }
+    .metric-card.status-unusable .status { color: var(--unusable); }
+    .quality-indicator {
+      display: inline-flex;
+      width: 60px;
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: repeating-linear-gradient(
+        to right,
+        rgba(15, 23, 42, 0.15),
+        rgba(15, 23, 42, 0.15) 10px,
+        transparent 10px,
+        transparent 12px
+      );
+      position: relative;
+    }
+    .quality-indicator::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+    }
+    .quality-indicator.quality-good::after {
+      background: linear-gradient(to right, #15803d 0%, #22c55e 100%);
+    }
+    .quality-indicator.quality-warn::after {
+      background: linear-gradient(to right, #b45309 0%, #f97316 50%, rgba(249, 115, 22, 0.35) 50%);
+    }
+    .quality-indicator.quality-poor::after {
+      background: linear-gradient(to right, #b91c1c 0%, #ef4444 45%, rgba(239, 68, 68, 0.35) 45%);
+    }
+    .quality-indicator.quality-bad::after {
+      background: linear-gradient(to right, #7f1d1d 0%, #dc2626 60%, rgba(220, 38, 38, 0.35) 60%);
+    }
+    .quality-indicator.quality-unusable::after {
+      background: linear-gradient(to right, #0f172a 0%, #1f2937 100%);
+    }
     .detail-table {
       width: 100%;
       border: 1px solid var(--border);
@@ -106,6 +155,7 @@
       max-width: 100%;
       border: 1px solid var(--border);
       border-radius: 10px;
+      cursor: zoom-in;
     }
     .media-gallery {
       display: grid;
@@ -120,7 +170,67 @@
       border-radius: 8px;
       text-align: center;
     }
-    .media-gallery img { max-width: 100%; border-radius: 6px; }
+    .media-primary p,
+    .media-gallery figcaption {
+      margin-top: 6px;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .media-gallery img {
+      max-width: 100%;
+      border-radius: 6px;
+      cursor: zoom-in;
+    }
+    .image-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 9999;
+    }
+    .image-modal.active { display: flex; }
+    .image-modal__content {
+      max-width: 95vw;
+      max-height: 90vh;
+      position: relative;
+    }
+    .image-modal__image {
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #fff;
+      box-shadow: 0 12px 48px rgba(15, 23, 42, 0.3);
+    }
+    .image-modal__caption {
+      margin-top: 10px;
+      text-align: center;
+      color: #f1f5f9;
+    }
+    .image-modal__close {
+      position: absolute;
+      top: -12px;
+      right: -12px;
+      background: #0f172a;
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      width: 32px;
+      height: 32px;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
+    }
+    .image-modal__close:focus-visible {
+      outline: 2px solid #cbd5f5;
+      outline-offset: 2px;
+    }
     .checklist-section { page-break-inside: avoid; }
     .checklist-stage { margin-bottom: 14px; }
     .signature-block {
@@ -160,7 +270,7 @@
 </header>
 <main>
   <section class="section">
-    <h1>Site Gravity Measurement Report</h1>
+    <h1>Gravity Measurement Report</h1>
     <p class="muted">Generated {{ generated_at }}</p>
     <div class="summary-grid" style="margin-top:12px;">
       {% for label, value in summary_items %}
@@ -182,7 +292,9 @@
           <div class="label">{{ metric.label }}</div>
           <div class="value">
             {% if metric.value is not none %}
-              {% if metric.label in ['Project Set Scatter (Measurement Precision)','Set Scatter (overall)'] %}
+              {% if metric.label in ['Final Determined Gravity'] %}
+                
+			        {% else %}
                 &PlusMinus;
               {% endif %}
               {{ '%.3f' % metric.value }}{% if metric.unit %} {{ metric.unit }}{% endif %}
@@ -190,8 +302,13 @@
               &mdash;
             {% endif %}
           </div>
-          {% if metric.status in ['good','warn','poor'] %}
-            <div class="status">{{ metric.status|upper }}</div>
+          {% if metric.status in ['good','warn','poor','bad','unusable'] %}
+            <div class="status">
+              <span>{{ metric.status|upper }}</span>
+              {% if metric.value is not none and metric.value != 0 %}
+                <span class="quality-indicator quality-{{ metric.status }}" aria-hidden="true"{% if metric.tooltip %} title="{{ metric.tooltip }}"{% endif %}></span>
+              {% endif %}
+            </div>
           {% endif %}
         </div>
       {% endfor %}
@@ -276,15 +393,33 @@
   <section class="section">
     <h2>Site Images</h2>
     <div class="media-primary">
-      <img src="{{ primary_image.data_url }}" alt="{{ primary_image.filename }}">
-      <p class="muted">{{ primary_image.caption or primary_image.filename }}</p>
+      {% set primary_caption = primary_image.caption %}
+      {% if not primary_caption %}
+        {% set _primary_base = primary_image.filename.rsplit('.', 1)[0] %}
+        {% if survey.name %}
+          {% set _primary_base = _primary_base.replace(survey.name, '') %}
+        {% endif %}
+        {% set _primary_trimmed = _primary_base.strip(' _-') %}
+        {% set primary_caption = _primary_trimmed if _primary_trimmed else _primary_base %}
+      {% endif %}
+      <img src="{{ primary_image.data_url }}" alt="{{ primary_image.filename }}" data-enlarge="true" data-caption="{{ primary_caption }}">
+      <p class="muted">{{ primary_caption }}</p>
     </div>
     {% if gallery_images %}
     <div class="media-gallery">
       {% for img in gallery_images %}
+      {% set gallery_caption = img.caption %}
+      {% if not gallery_caption %}
+        {% set _gallery_base = img.filename.rsplit('.', 1)[0] %}
+        {% if survey.name %}
+          {% set _gallery_base = _gallery_base.replace(survey.name, '') %}
+        {% endif %}
+        {% set _gallery_trimmed = _gallery_base.strip(' _-') %}
+        {% set gallery_caption = _gallery_trimmed if _gallery_trimmed else _gallery_base %}
+      {% endif %}
       <figure>
-        <img src="{{ img.data_url }}" alt="{{ img.filename }}">
-        <figcaption>{{ img.caption or img.filename }}</figcaption>
+        <img src="{{ img.data_url }}" alt="{{ img.filename }}" data-enlarge="true" data-caption="{{ gallery_caption }}">
+        <figcaption>{{ gallery_caption }}</figcaption>
       </figure>
       {% endfor %}
     </div>
@@ -298,9 +433,18 @@
     {% if graph_images %}
     <div class="media-gallery">
       {% for gr in graph_images %}
+      {% set graph_caption = gr.note %}
+      {% if not graph_caption %}
+        {% set _graph_base = gr.filename.rsplit('.', 1)[0] %}
+        {% if survey.name %}
+          {% set _graph_base = _graph_base.replace(survey.name, '') %}
+        {% endif %}
+        {% set _graph_trimmed = _graph_base.strip(' _-') %}
+        {% set graph_caption = _graph_trimmed if _graph_trimmed else _graph_base %}
+      {% endif %}
       <figure>
-        <img src="{{ gr.data_url }}" alt="{{ gr.filename }}">
-        <figcaption>{{ gr.note or gr.filename }}</figcaption>
+        <img src="{{ gr.data_url }}" alt="{{ gr.filename }}" data-enlarge="true" data-caption="{{ graph_caption }}">
+        <figcaption>{{ graph_caption }}</figcaption>
       </figure>
       {% endfor %}
     </div>
@@ -369,5 +513,61 @@
     <p class="muted">Generated by Site Survey Manager - {{ generated_at }}</p>
   {% endif %}
 </footer>
+
+<div id="image-modal" class="image-modal" aria-hidden="true">
+  <div class="image-modal__content" role="dialog" aria-modal="true" aria-labelledby="image-modal-caption">
+    <button type="button" class="image-modal__close" data-modal-close aria-label="Close image">&times;</button>
+    <img class="image-modal__image" src="" alt="Expanded view">
+    <p id="image-modal-caption" class="image-modal__caption"></p>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const modal = document.getElementById('image-modal');
+    if (!modal) { return; }
+
+    const modalImage = modal.querySelector('.image-modal__image');
+    const modalCaption = modal.querySelector('.image-modal__caption');
+    const closeButton = modal.querySelector('[data-modal-close]');
+
+    const openModal = (src, altText, caption) => {
+      modalImage.src = src;
+      modalImage.alt = altText || 'Expanded view';
+      modalCaption.textContent = caption || altText || '';
+      modal.classList.add('active');
+      modal.setAttribute('aria-hidden', 'false');
+      if (closeButton) {
+        closeButton.focus({ preventScroll: true });
+      }
+    };
+
+    const closeModal = () => {
+      if (!modal.classList.contains('active')) { return; }
+      modal.classList.remove('active');
+      modal.setAttribute('aria-hidden', 'true');
+      modalImage.src = '';
+      modalImage.alt = 'Expanded view';
+    };
+
+    document.querySelectorAll('img[data-enlarge="true"]').forEach((img) => {
+      img.addEventListener('click', () => {
+        openModal(img.src, img.alt, img.getAttribute('data-caption'));
+      });
+    });
+
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal || event.target === closeButton) {
+        closeModal();
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeModal();
+      }
+    });
+  });
+</script>
 </body>
 </html>

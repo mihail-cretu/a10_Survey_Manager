@@ -9,6 +9,7 @@ BEGIN TRANSACTION;
 
 -- Optional: clean slate (drop in FK-safe order)
 DROP TABLE IF EXISTS measurement_graphs;
+DROP TABLE IF EXISTS site_files;
 DROP TABLE IF EXISTS measurement_images;
 DROP TABLE IF EXISTS measurement_set;
 DROP TABLE IF EXISTS measurement_project;
@@ -166,6 +167,25 @@ CREATE TABLE measurement_graphs (
 
 CREATE INDEX idx_mgraphs_measurement ON measurement_graphs(measurement_id);
 CREATE INDEX idx_mgraphs_sha256      ON measurement_graphs(sha256_hex);
+
+----------------------------------------------------------------------
+-- Site files (general supporting documents tied to a measurement)
+----------------------------------------------------------------------
+CREATE TABLE site_files (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  measurement_id  INTEGER NOT NULL,
+  filename        TEXT NOT NULL,
+  mime_type       TEXT,
+  size_bytes      INTEGER,
+  sha256_hex      TEXT,
+  note            TEXT,
+  imported_at     TEXT NOT NULL DEFAULT (datetime('now')),
+  file_blob       BLOB NOT NULL,
+  FOREIGN KEY (measurement_id) REFERENCES measurements(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_site_files_measurement ON site_files(measurement_id);
+CREATE INDEX idx_site_files_sha256      ON site_files(sha256_hex);
 
 ----------------------------------------------------------------------
 -- Sanity views (optional helpers)
