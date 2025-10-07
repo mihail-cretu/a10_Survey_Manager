@@ -29,7 +29,7 @@ CREATE TABLE site_surveys (
   status      TEXT NOT NULL DEFAULT 'new',  -- new | preflight | measurements | completed
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
-  CHECK (status IN ('new','preflight','measurements','completed'))
+  CHECK (status IN ('new', 'preflight', 'measurements', 'completed', 'archived', 'deleted', 'error', 'locked'))
 );
 
 -- Keep updated_at fresh on any update (one extra no-op trigger fire is expected)

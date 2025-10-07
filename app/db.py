@@ -22,7 +22,7 @@ CREATE TABLE site_surveys (
   status      TEXT NOT NULL DEFAULT 'new',  -- new | preflight | measurements | completed
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
-  CHECK (status IN ('new','preflight','measurements','completed'))
+  CHECK (status IN ('new', 'preflight', 'measurements', 'completed', 'archived', 'deleted', 'error', 'locked'))
 );
 CREATE TRIGGER site_surveys_set_updated_at
 AFTER UPDATE ON site_surveys

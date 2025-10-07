@@ -104,6 +104,14 @@
           "required": true,
           "value_type": "float",
           "unit": "cm"
+        },
+        {
+          "step": "0.14",
+          "action": "Historical Gravity",
+          "expected": "Historical Gravity Data (\u00b5Gal)",
+          "required": true,
+          "value_type": "float",
+          "unit": "\u00b5Gal"
         }
       ]
     },

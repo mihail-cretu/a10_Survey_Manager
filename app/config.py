@@ -58,6 +58,6 @@ PREFERRED_ENCODINGS = (
 KV_RE = re.compile(r"^\s*([^:]{1,128})\s*:\s*(.+?)\s*$")
 
 # ---- Survey status enumeration
-STATUS_CHOICES = ["new", "preflight", "measurements", "completed", "archived", "deleted", "error", "locked" ]
+STATUS_CHOICES = ["new", "preflight", "measurements", "completed", "archived", "deleted", "error", "locked"]
 
 
