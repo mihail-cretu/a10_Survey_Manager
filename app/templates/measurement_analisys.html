@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+{% block title %}Analysis - {{ survey.name }}{% endblock %}
+{% block header_menu %}
+  <a class="btn btn-site" href="/site-surveys/{{ survey.id }}">Survey Overview</a>
+  <a class="btn btn-measure" href="/site-surveys/{{ survey.id }}/measurements">Measurements</a>
+  <a class="btn btn-measure" href="/site-surveys/{{ survey.id }}/analisys">Analysis</a>
+{% endblock %}
+{% block header_actions %}
+  <a class="btn" href="javascript:history.back()">Back</a>
+{% endblock %}
+{% block breadcrumbs %}
+  {% set breadcrumbs = [
+    {"label": "Site Surveys", "url": "/site-surveys"},
+    {"label": survey.name, "url": "/site-surveys/" ~ survey.id},
+    {"label": "Analysis", "url": None},
+  ] %}
+  {{ super() }}
+{% endblock %}
+{% block content %}
+<h1>Measurement Analysis</h1>
+<p class="muted">Build a statistical report across one or more measurements for this survey.</p>
+
+<div class="card" style="margin-bottom: 16px;">
+  <form method="post">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;">
+      <div>
+        <strong>Select measurements</strong>
+        <p class="muted" style="margin: 4px 0 0 0; font-size: 14px;">Choose the measurements you want to include in the analysis.</p>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn" data-select="all">Select All</button>
+        <button type="button" class="btn" data-select="none">Clear</button>
+        <button type="submit" class="btn btn-measure">Generate Report</button>
+      </div>
+    </div>
+    {% if measurements %}
+    <div style="max-height: 320px; overflow: auto; border: 1px solid var(--slate-200); border-radius: 8px;">
+      <table style="margin: 0;">
+        <thead>
+          <tr>
+            <th style="width: 60px;">Use</th>
+            <th>Measurement</th>
+            <th>Gravity (&micro;Gal)</th>
+            <th>TU (&micro;Gal)</th>
+            <th>Drops Accepted</th>
+            <th>Drops Rejected</th>
+            <th>Accepted %</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in measurements %}
+          <tr>
+            <td style="text-align: center;">
+              <input type="checkbox" name="measurement_ids" value="{{ m.id }}" {% if m.id in selected_ids %}checked{% endif %}>
+            </td>
+            <td>
+              <div><strong>{{ m.title }}</strong></div>
+              <div class="muted" style="font-size: 13px;">Created {{ m.created_at }}</div>
+            </td>
+            <td>{{ '%.3f' % m.gravity if m.gravity is not none else '-' }}</td>
+            <td>{% if m.tu is not none %}&PlusMinus;{{ '%.3f' % m.tu }}{% else %}-{% endif %}</td>
+            <td>{{ m.drops_accepted if m.drops_accepted is not none else '-' }}</td>
+            <td>{{ m.drops_rejected if m.drops_rejected is not none else '-' }}</td>
+            <td>{% if m.accepted_pct is not none %}{{ '%.1f' % m.accepted_pct }}%{% else %}-{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <p class="muted">No measurements available yet.</p>
+    {% endif %}
+  </form>
+</div>
+
+{% if stats.gravity.count %}
+<div class="card" style="margin-bottom: 16px;">
+  <h2 style="margin-top: 0;">Statistical Summary</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th>Count</th>
+        <th>Average</th>
+        <th>Min</th>
+        <th>Max</th>
+        <th>Std Dev</th>
+        <th>Extra</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Gravity (&micro;Gal)</strong></td>
+        <td>{{ stats.gravity.count }}</td>
+        <td>{{ '%.3f' % stats.gravity.avg if stats.gravity.avg is not none else '-' }}</td>
+        <td>{{ '%.3f' % stats.gravity.min if stats.gravity.min is not none else '-' }}</td>
+        <td>{{ '%.3f' % stats.gravity.max if stats.gravity.max is not none else '-' }}</td>
+        <td>{{ '%.3f' % stats.gravity.stdev if stats.gravity.stdev is not none else '-' }}</td>
+        <td>
+          {% if stats.gravity.weighted is not none %}
+            Inverted Weighted Avg: {{ '%.3f' % stats.gravity.weighted }}
+          {% else %}-{% endif %}
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Total Uncertainty (&micro;Gal)</strong></td>
+        <td>{{ stats.tu.count }}</td>
+        <td>{{ '%.3f' % stats.tu.avg if stats.tu.avg is not none else '-' }}</td>
+        <td>{{ '%.3f' % stats.tu.min if stats.tu.min is not none else '-' }}</td>
+        <td>{{ '%.3f' % stats.tu.max if stats.tu.max is not none else '-' }}</td>
+        <td>{{ '%.3f' % stats.tu.stdev if stats.tu.stdev is not none else '-' }}</td>
+        <td>-</td>
+      </tr>
+      <tr>
+        <td><strong>Drops Accepted</strong></td>
+        <td>{{ stats.drops.count }}</td>
+        <td>{{ '%.1f' % stats.drops.avg if stats.drops.avg is not none else '-' }}</td>
+        <td>{{ '%.0f' % stats.drops.min if stats.drops.min is not none else '-' }}</td>
+        <td>{{ '%.0f' % stats.drops.max if stats.drops.max is not none else '-' }}</td>
+        <td>{{ '%.1f' % stats.drops.stdev if stats.drops.stdev is not none else '-' }}</td>
+        <td>-</td>
+      </tr>
+      <tr>
+        <td><strong>Accepted %</strong></td>
+        <td>{{ stats.accepted_pct.count }}</td>
+        <td>{{ '%.2f' % stats.accepted_pct.avg if stats.accepted_pct.avg is not none else '-' }}%</td>
+        <td>{{ '%.2f' % stats.accepted_pct.min if stats.accepted_pct.min is not none else '-' }}%</td>
+        <td>{{ '%.2f' % stats.accepted_pct.max if stats.accepted_pct.max is not none else '-' }}%</td>
+        <td>{{ '%.2f' % stats.accepted_pct.stdev if stats.accepted_pct.stdev is not none else '-' }}%</td>
+        <td>-</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if chart_payload %}
+<div class="card">
+  <h2 style="margin-top: 0;">Gravity &amp; TU Visualisation</h2>
+  <div id="analysis-chart" style="height: 420px;"></div>
+</div>
+<script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+<script>
+function renderAnalysisChart() {
+  const payload = {{ chart_payload | safe }};
+  const labels = payload.labels;
+
+  const formatWithSingleUnderscore = (value, decimals = 2) => {
+    if (value === null || value === undefined || !isFinite(value)) {
+      return null;
+    }
+    const fixed = Number(value).toFixed(decimals);
+    const [intPart, fracPart] = fixed.split('.');
+    if (intPart.length <= 3) {
+      return `${intPart}.${fracPart}`;
+    }
+    const head = intPart.slice(0, -3);
+    const tail = intPart.slice(-3);
+    return `${head}_${tail}.${fracPart}`;
+  };
+
+  const formatWithUnit = (value, unit = 'µGal', decimals = 2) => {
+    const formatted = formatWithSingleUnderscore(value, decimals);
+    if (formatted === null) {
+      return '-';
+    }
+    return unit ? `${formatted} ${unit}` : formatted;
+  };
+
+  const formatAxisTicks = (gd) => {
+    const nodes = gd.querySelectorAll('.yaxislayer-above text');
+    nodes.forEach((node) => {
+      const datum = node.__data__;
+      const rawText = datum && typeof datum.text !== 'undefined' ? datum.text : node.textContent;
+      const numeric = Number(String(rawText).replace(/[^0-9+\-Ee.]/g, ''));
+      if (!Number.isFinite(numeric)) {
+        return;
+      }
+      const formatted = formatWithSingleUnderscore(numeric);
+      if (formatted !== null) {
+        node.textContent = formatted;
+      }
+    });
+  };
+
+  const formattedGravity = payload.gravity.map((val) => formatWithUnit(val));
+  const formattedHigh = payload.tu_high.map((val) => formatWithUnit(val));
+  const formattedLow = payload.tu_low.map((val) => formatWithUnit(val));
+  const formattedTu = labels.map((_, idx) => {
+    const highVal = payload.tu_high[idx];
+    const lowVal = payload.tu_low[idx];
+    const gravityVal = payload.gravity[idx];
+    let tuVal = null;
+    if (Number.isFinite(highVal) && Number.isFinite(lowVal)) {
+      tuVal = (highVal - lowVal) / 2;
+    } else if (Number.isFinite(highVal) && Number.isFinite(gravityVal)) {
+      tuVal = Math.abs(highVal - gravityVal);
+    } else if (Number.isFinite(lowVal) && Number.isFinite(gravityVal)) {
+      tuVal = Math.abs(gravityVal - lowVal);
+    }
+    return formatWithUnit(tuVal);
+  });
+
+  const gravityTrace = {
+    type: 'scatter',
+    mode: 'lines+markers',
+    name: 'Gravity',
+    x: labels,
+    y: payload.gravity,
+    line: {color: '#1d4ed8', width: 2},
+    marker: {color: '#1d4ed8', size: 8},
+    hovertext: formattedGravity.map((val) => `Gravity: ${val}`),
+    hoverinfo: 'text'
+  };
+
+  const tuTrace = {
+    type: 'candlestick',
+    name: 'Gravity ± TU',
+    x: labels,
+    open: payload.tu_open,
+    close: payload.tu_close,
+    high: payload.tu_high,
+    low: payload.tu_low,
+    increasing: {line: {color: '#38bdf8'}},
+    decreasing: {line: {color: '#38bdf8'}},
+    whiskerwidth: 0.4,
+    opacity: 0.5,
+    hovertext: labels.map((_, idx) => [
+      `<b>${_}</b>`,
+      `Gravity: ${formattedGravity[idx]}`,
+      `TU ±: ${formattedTu[idx]}<br>`,
+      `High: ${formattedHigh[idx]}`,
+      `Low : ${formattedLow[idx]}`      
+    ].join('<br>')),
+    hoverinfo: 'text',
+    showlegend: true
+  };
+
+  const axisCandidates = [
+    ...(payload.gravity || []),
+    ...(payload.tu_high || []),
+    ...(payload.tu_low || [])
+  ].filter((val) => Number.isFinite(val));
+
+  let leftMargin = 60;
+  if (axisCandidates.length) {
+    const maxMagnitude = axisCandidates.reduce((acc, val) => {
+      const absVal = Math.abs(val);
+      return absVal > acc ? absVal : acc;
+    }, 0);
+    const formattedMax = formatWithSingleUnderscore(maxMagnitude);
+    if (formattedMax) {
+      leftMargin = Math.max(leftMargin, 32 + formattedMax.length * 7.5);
+    }
+  }
+
+  const layout = {
+    margin: {l: leftMargin, r: 20, t: 30, b: 60},
+    yaxis: {
+      title: 'µGal',
+      zeroline: false,
+      gridcolor: 'rgba(148, 163, 184, 0.2)',
+      tickformat: '.2f'
+    },
+    xaxis: {
+      type: 'category',
+      tickangle: -30
+    },
+    shapes: payload.shapes,
+    legend: {
+      orientation: 'h',
+      y: 1.02,
+      x: 0,
+      xanchor: 'left',
+      yanchor: 'bottom'
+    }
+  };
+
+  Plotly.newPlot('analysis-chart', [tuTrace, gravityTrace], layout, {
+    responsive: true,
+    displaylogo: false
+  }).then((gd) => {
+    const applyTickFormat = () => formatAxisTicks(gd);
+    applyTickFormat();
+    gd.on('plotly_relayout', applyTickFormat);
+    gd.on('plotly_redraw', applyTickFormat);
+    gd.on('plotly_update', applyTickFormat);
+  });
+}
+renderAnalysisChart();
+</script>
+{% endif %}
+
+<script>
+const selectorsScript = document.currentScript;
+function initMeasurementSelectors(scriptEl) {
+  const container = scriptEl.parentElement;
+  const selectAll = container.querySelector('[data-select="all"]');
+  const selectNone = container.querySelector('[data-select="none"]');
+  const checkboxes = () => Array.from(container.querySelectorAll('input[type="checkbox"][name="measurement_ids"]'));
+
+  if (selectAll) {
+    selectAll.addEventListener('click', function() {
+      checkboxes().forEach(cb => cb.checked = true);
+    });
+  }
+
+  if (selectNone) {
+    selectNone.addEventListener('click', function() {
+      checkboxes().forEach(cb => cb.checked = false);
+    });
+  }
+}
+initMeasurementSelectors(selectorsScript);
+</script>
+{% endblock %}

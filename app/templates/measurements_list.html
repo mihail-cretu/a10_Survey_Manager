@@ -70,6 +70,7 @@
 <div class="actions" style="margin:12px 0;">
   <a class="btn btn-measure" href="/site-surveys/{{ survey.id }}/measurements/new">New Measurement</a>
   <a class="btn btn-site" href="/site-surveys/{{ survey.id }}/preflight/start">Preflight Checklist</a>
+  <a class="btn btn-measure" href="/site-surveys/{{ survey.id }}/analisys">Analysis</a>
 </div>
 
 <div class="card">
@@ -80,10 +81,11 @@
         <th>ID</th>
         <th>Title</th>
         <th>Created</th>
-        <th>PSS (uGal)</th>
+        <th>PSS (&micro;Gal)</th>
         <th>PSS* (cm)</th>
         <th>Set Scatter (uGal)</th>
-        <th>Gravity (uGal)</th>
+        <th>Gravity (&micro;Gal)</th>
+        <th>TU (&micro;Gal)</th>
         <th>Sets@Drops</th>
         <th>Drops Accepted</th>
         <th>Drops Rejected</th>
@@ -119,6 +121,11 @@
           {% else %}-{% endif %}
         </td>
         <td>{{ m.gravity if m.gravity else "-" }}</td>
+        <td>
+          {% if m.tu is not none %}
+              &PlusMinus;{{ '%.2f' % (m.tu) }}
+          {% endif %} 
+        </td>
         <td>{{ m.sets_at_drops }}</td>
         <td>{{ m.drops_accepted | int() if m.drops_accepted is not none else "-" }}</td>
         <td>{{ m.drops_rejected | int() if m.drops_rejected is not none else "-" }}</td>
@@ -142,4 +149,3 @@
   {% endif %}
 </div>
 {% endblock %}
-

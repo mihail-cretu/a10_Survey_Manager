@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <title>Measurement Report {{ survey.name }} - {{ measurement.title }} - {{ survey.code or '' }}</title>
+  <style media="print">
+  .no-print-inline { display: none !important; }
+  </style>
   <style>
     :root {
       --text: #1f2328;
@@ -11,16 +14,21 @@
       --accent: #0f172a;
       --good: #0f5132;
       --warn: #8a4b0f;
-      --poor: #842029;
+      --poor: #842029; 
       --bad: #7f1d1d;
       --unusable: #0f172a;
     }
     @page {
-      margin: 20mm;
+      margin: 10mm;
     }
     * {
       box-sizing: border-box;
     }
+    @media print {
+      .page-break {
+        page-break-before: always; /* or page-break-after */
+      }
+    }    
     body {
       font-family: "Segoe UI", Arial, sans-serif;
       font-size: 12px;
@@ -34,9 +42,9 @@
     main {
       width: 100%;
     }
-    h1 { font-size: 24px; margin: 0 0 8px 0; }
-    h2 { font-size: 18px; margin: 28px 0 12px 0; }
-    h3 { font-size: 15px; margin: 18px 0 8px 0; }
+    h1 { font-size: 30px; margin: 0 0 8px 0; }
+    h2 { font-size: 24px; margin: 18px 0 0 0; }
+    h3 { font-size: 15px; margin: 18px 0 0 0; }
     p { margin: 0 0 6px 0; }
     .muted { color: var(--muted); }
     .section { page-break-inside: avoid; margin-bottom: 24px; }
@@ -60,6 +68,7 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 12px;
+      /* min-width: 260px; */
     }
     .metric-card .label { font-weight: 600; margin-bottom: 4px; }
     .metric-card .value { font-size: 20px; font-weight: 600; }
@@ -159,7 +168,7 @@
     }
     .media-gallery {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
       gap: 12px;
       margin-top: 12px;
     }
@@ -390,6 +399,7 @@
   </section>
 
   {% if primary_image %}
+  <div class="page-break"></div>
   <section class="section">
     <h2>Site Images</h2>
     <div class="media-primary">
@@ -428,6 +438,7 @@
   {% endif %}
 
   {% if graph_images or graph_docs %}
+  <div class="page-break"></div>
   <section class="section">
     <h2>g9 Graphs</h2>
     {% if graph_images %}
@@ -462,6 +473,7 @@
   {% endif %}
 
   {% if checklist_stages %}
+  <div class="page-break"></div>
   <section class="section page-break checklists">
     <h2>Checklist Summary</h2>
     {% for stage in checklist_stages %}

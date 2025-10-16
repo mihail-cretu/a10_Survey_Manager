@@ -44,6 +44,14 @@ def _decode_text(data: bytes) -> str:
             continue
     return data.decode("utf-8", errors="replace")
 
+def _parse_float(value: Any) -> Optional[float]:
+    import re
+    if value is None:
+        return None
+    text = str(value).replace(",", ".")
+    match = re.search(r"-?\d+(?:\.\d+)?", text)
+    return float(match.group(0)) if match else None
+
 def init_measurement_tables():
     with _db() as con:
         cur = con.cursor()
@@ -413,7 +421,7 @@ def list_measurements(request: Request, survey_id: int):
 
         pss = qm.get("project_set_scatter")
         ssov = qm.get("set_scatter_overall")
-        gravity = site.get("Gravity (uGal)")
+        gravity = _parse_float(site.get("Gravity (µGal)"))
 
         sets_total = nint(keys.get("Number of Sets"))
         drops_total = nint(keys.get("Number of Drops"))
@@ -439,6 +447,7 @@ def list_measurements(request: Request, survey_id: int):
                 "ssov": ssov,
                 "ssov_status": classify_threshold(ssov, THR.get("ssov", {})),
                 "ssov_tooltip": format_threshold_tooltip(ssov, THR.get("ssov", {}), unit="µGal"),
+                "tu": qm.get("total_uncertainty"),
                 "gravity": gravity,
                 "sets_at_drops": f"{sets_total}@{drops_total}" if (sets_total is not None and drops_total is not None) else "-",
                 "sets_processed": sets_processed or "-",

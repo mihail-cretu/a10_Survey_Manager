@@ -9,6 +9,7 @@ from datetime import datetime
 
 from preflight_checklist import router as preflight_router
 from measurement import router as measurement_router
+from measurement_analisys import router as measurement_analisys_router
 from measurement_report import router as measurement_report_router
 
 from config import STATUS_CHOICES
@@ -23,6 +24,7 @@ app = FastAPI(title="Site Surveys")
 
 app.include_router(preflight_router)
 app.include_router(measurement_router)
+app.include_router(measurement_analisys_router)
 app.include_router(measurement_report_router)
 
 templates = Jinja2Templates(directory=str(APP_ROOT / "templates"))
@@ -161,6 +163,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
+        port=8808,
         reload=True
     )
